@@ -1,6 +1,7 @@
 ### dnd-currency-manager
 
-- Run localy  (http://127.0.0.1:8000)
+- Run localy  (http://127.0.0.1:8080)
 ```
-uvicorn app.main:app --reload
+sudo docker-compose up -d
+
 ```
