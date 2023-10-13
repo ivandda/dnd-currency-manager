@@ -10,6 +10,7 @@ class WalletBase(BaseModel):
 
 
 class WalletCreate(WalletBase):
+    character_owner_id: int
     pass
 
 
@@ -22,6 +23,7 @@ class WalletResponse(BaseModel):
     owner_name: str
     money: int
     created_at: datetime
+    character_owner_id: int
 
     # class Config:
     #     orm_mode = True

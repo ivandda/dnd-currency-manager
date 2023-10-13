@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, TIMESTAMP, text, String
+from sqlalchemy import Column, Integer, TIMESTAMP, text, String, ForeignKey
 
 from app.database.database import Base
 
@@ -11,3 +11,5 @@ class Wallet(Base):
     owner_name = Column(String, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True),
                         server_default=text("now()"), nullable=False)
+    character_owner_id = Column(Integer, ForeignKey("characters.id", ondelete="CASCADE"),
+                       unique=True,nullable=False)
