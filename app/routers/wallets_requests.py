@@ -2,7 +2,7 @@ from fastapi import Response, status, HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
 
-from app.models import wallet_model
+from app.models import models
 from app.database.database import get_db
 from app.schemas import wallets_schema
 
@@ -14,7 +14,7 @@ router = APIRouter(
 
 @router.get("/", response_model=List[wallets_schema.WalletResponse])
 async def get_all_wallets(db: Session = Depends(get_db)):
-    all_wallets = db.query(wallet_model.Wallet).all()
+    all_wallets = db.query(models.Wallet).all()
     return all_wallets
 
 
@@ -28,7 +28,7 @@ async def get_one_wallet(id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=wallets_schema.WalletResponse, status_code=status.HTTP_201_CREATED)
 async def post_wallet(wallet: wallets_schema.WalletCreate, db: Session = Depends(get_db)):
-    new_wallet = wallet_model.Wallet(**wallet.model_dump())
+    new_wallet = models.Wallet(**wallet.model_dump())
     db.add(new_wallet)
     db.commit()
     db.refresh(new_wallet)
@@ -58,7 +58,7 @@ async def update_wallet(id: int, info_update: wallets_schema.WalletUpdate, bd: S
 
 
 def query_get_wallet_by_id(db, id):
-    return db.query(wallet_model.Wallet).filter(wallet_model.Wallet.id == id)
+    return db.query(models.Wallet).filter(models.Wallet.id == id)
 
 
 def check_if_exists(exisists):

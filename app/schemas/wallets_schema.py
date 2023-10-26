@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field, EmailStr
 
 # this is the shema (from pydantic) for defining the shape of the requests (for validation)
 class WalletBase(BaseModel):
-    owner_name: str
     money: Optional[int] = None
 
 
@@ -20,7 +19,6 @@ class WalletUpdate(WalletBase):
 
 class WalletResponse(BaseModel):
     id: int
-    owner_name: str
     money: int
     created_at: datetime
     character_owner_id: int

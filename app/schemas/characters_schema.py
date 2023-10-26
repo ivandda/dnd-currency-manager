@@ -5,13 +5,12 @@ from pydantic import BaseModel, Field, EmailStr
 
 # this is the shema (from pydantic) for defining the shape of the requests (for validation)
 class CharacterCreate(BaseModel):
-    email: EmailStr
-    password: str
+    name: str
 
 
 class CharacterResponse(BaseModel):
     id: int
-    email: str
+    name: str
     created_at: datetime
 
     class Config:
