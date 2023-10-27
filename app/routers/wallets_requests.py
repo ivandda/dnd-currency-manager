@@ -61,6 +61,6 @@ def query_get_wallet_by_id(db, id):
     return db.query(models.Wallet).filter(models.Wallet.id == id)
 
 
-def check_if_exists(exisists):
-    if not exisists:
+def check_if_exists(exists):
+    if not exists:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Does not exist")

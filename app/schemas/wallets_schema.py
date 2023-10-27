@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel
 
 
 # this is the shema (from pydantic) for defining the shape of the requests (for validation)
