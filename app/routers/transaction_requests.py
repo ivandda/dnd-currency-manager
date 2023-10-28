@@ -21,3 +21,26 @@ async def check_founds(id: int, db: Session = Depends(get_db)):
 @router.get("/checkFounds/{id}/{amount}")
 async def check_founds(id: int, amount: int, db: Session = Depends(get_db)):
     return character_has_founds(db, id, amount)
+
+
+@router.put("/sum/{id}/{amount}", status_code=status.HTTP_200_OK)
+async def sum_money_to_character(id: int, amount: int, db: Session = Depends(get_db)):
+    add_money(db, id, amount)
+    return {"message": "Character " + get_character_name(db, id)
+                       + " (with id " + str(id) + ") has received " + str(amount)}
+
+
+@router.put("/subtract/{id}/{amount}", status_code=status.HTTP_200_OK)
+async def subtract_money_to_character(id: int, amount: int, db: Session = Depends(get_db)):
+    subtract_money(db, id, amount)
+    return {"message": "Character " + get_character_name(db, id)
+                       + " (with id " + str(id) + ") has lost " + str(amount)}
+
+
+@router.put("/transfer/{id}/{id2}/{amount}", status_code=status.HTTP_200_OK)
+async def transfer_money(id: int, amount: int, id2: int, db: Session = Depends(get_db)):
+    character_has_founds(db, id, amount)
+    subtract_money(db, id, amount)
+    add_money(db, id2, amount)
+    return {"message": "Transfer completed"}
+
