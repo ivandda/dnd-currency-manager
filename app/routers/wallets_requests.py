@@ -5,6 +5,7 @@ from typing import List
 from app.models import models
 from app.database.database import get_db
 from app.schemas import wallets_schema
+from app.utils.utils import *
 
 router = APIRouter(
     prefix="/wallets",
@@ -56,11 +57,3 @@ async def update_wallet(id: int, info_update: wallets_schema.WalletUpdate, bd: S
 
     return query_get_wallet_by_id(bd, id).first()
 
-
-def query_get_wallet_by_id(db, id):
-    return db.query(models.Wallet).filter(models.Wallet.id == id)
-
-
-def check_if_exists(exists):
-    if not exists:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Does not exist")

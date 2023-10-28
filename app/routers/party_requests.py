@@ -2,9 +2,9 @@ from fastapi import Response, status, HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
 
-from app.models import models
 from app.database.database import get_db
 from app.schemas import party_schema, characters_schema
+from app.utils.utils import *
 
 router = APIRouter(
     prefix="/party",
@@ -32,7 +32,7 @@ async def get_characters_in_party(id: int, db: Session = Depends(get_db)):
     party = query_get_party_by_id(db, id).first()
     check_if_exists(party)
 
-    return get_characters_in_party(party)
+    return party.characters
 
 
 @router.post("/", response_model=party_schema.PartyResponse, status_code=status.HTTP_201_CREATED)
@@ -54,7 +54,10 @@ async def add_characters_to_party(id: int, characters: party_schema.PartyAddChar
         print(character_id)
         if character_id in [character.id for character in party.characters]:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                                detail="No characters added, one is already in party")
+                                detail="No characters added, character "
+                                       + get_character_name(db, character_id)
+                                       + " (id: " + str(character_id)
+                                       + ") is already in party")
 
         character = db.query(models.Characters).filter(models.Characters.id == character_id).first()
         check_if_exists(character)
@@ -63,16 +66,3 @@ async def add_characters_to_party(id: int, characters: party_schema.PartyAddChar
     db.commit()
 
     return party
-
-
-def query_get_party_by_id(db, id):
-    return db.query(models.Parties).filter(models.Parties.id == id)
-
-
-def check_if_exists(exists):
-    if not exists:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Does not exist")
-
-
-def get_characters_in_party(party):
-    return party.characters
