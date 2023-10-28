@@ -1,7 +1,54 @@
-from app.utils.utils import *
 from fastapi import Response, status, HTTPException, Depends, APIRouter
 
-values = {"platinum": 1000, "gold": 100, "electrum": 50, "silver": 10,"copper": 1}
+from app.utils.utils import *
+from app.schemas.money import Money
+
+
+values = {"platinum": 1000, "gold": 100, "electrum": 50, "silver": 10, "copper": 1}
+
+
+def convert_to_copper(money: Money):
+    money_dict = money.model_dump()
+    total_copper = sum([values[k] * money_dict[k] for k in values])
+    return total_copper
+
+
+def convert_to_simplified(copper: int) -> Money:
+    converted = {"platinum": 0, "gold": 0, "electrum": 0, "silver": 0, "copper": 0}
+    for k in values:
+        converted[k] = copper // values[k]
+        copper -= converted[k] * values[k]
+
+    return Money(**converted)
+
+
+def converto_to_type(copper: int, curr_type: str) -> Money:
+    total_curr_type = copper // values[curr_type]
+    reminder_copper = copper - total_curr_type * values[curr_type]
+
+    converted = convert_to_simplified(reminder_copper).model_dump()
+    converted[curr_type] += total_curr_type
+
+    return Money(**converted)
+
+
+def convert_to_simplified_return_dict(copper: int) -> dict:
+    converted = {"platinum": 0, "gold": 0, "electrum": 0, "silver": 0, "copper": 0}
+    for k in values:
+        converted[k] = copper // values[k]
+        copper -= converted[k] * values[k]
+
+    return converted
+
+
+def converto_to_type_return_dict(copper: int, curr_type: str) -> dict:
+    total_curr_type = copper // values[curr_type]
+    reminder_copper = copper - total_curr_type * values[curr_type]
+
+    converted = convert_to_simplified_return_dict(reminder_copper)
+    converted[curr_type] += total_curr_type
+
+    return converted
 
 
 def get_wallet_by_character_id(db, character_id):
