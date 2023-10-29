@@ -13,9 +13,11 @@ router = APIRouter(
 )
 
 
-@router.get("/getFounds/{id}")
+@router.get("/getFounds/{id}", response_model=Money)
 async def check_founds(id: int, db: Session = Depends(get_db)):
-    return get_money_in_character_wallet(db, id)
+    copper = get_money_in_character_wallet(db, id)
+    money_simplified = convert_to_simplified_return_dict(copper)
+    return Money(**money_simplified)
 
 
 @router.get("/checkFounds/{id}/{amount}")
