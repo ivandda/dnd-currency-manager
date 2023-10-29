@@ -2,7 +2,7 @@ from fastapi import status, HTTPException
 
 from app.models import models
 
-
+# repositorios
 def check_if_exists(exists):
     if not exists:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Does not exist")
