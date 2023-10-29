@@ -3,7 +3,6 @@ from fastapi import Response, status, HTTPException, Depends, APIRouter
 from app.utils.utils import *
 from app.schemas.money import Money
 
-
 values = {"platinum": 1000, "gold": 100, "electrum": 50, "silver": 10, "copper": 1}
 
 
@@ -61,15 +60,14 @@ def get_money_in_wallet(db, id):
     return wallet.money
 
 
-def get_money_in_character_wallet(db, character_id):
+def get_money_in_character_wallet(db, character_id: int) -> int:
     character_wallet = get_wallet_by_character_id(db, character_id)
-    print(character_wallet)
     character_money = get_money_in_wallet(db, character_wallet.id)
 
     return character_money
 
 
-def character_has_founds(db, character_id, amount):
+def character_has_founds(db, character_id: int, amount: int) -> bool:
     character_money = get_money_in_character_wallet(db, character_id)
 
     if character_money < amount:
@@ -83,7 +81,7 @@ def character_has_founds(db, character_id, amount):
         return True
 
 
-def add_money(db, id, amount):
+def add_money(db, id: int, amount: int):
     wallet = get_wallet_by_character_id(db, id)
     wallet.money += amount
     db.commit()
