@@ -56,4 +56,3 @@ async def update_wallet(id: int, info_update: wallets_schema.WalletUpdate, bd: S
     bd.commit()
 
     return query_get_wallet_by_id(bd, id).first()
-
