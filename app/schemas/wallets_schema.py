@@ -23,5 +23,6 @@ class WalletResponse(BaseModel):
     created_at: datetime
     character_owner_id: int
 
-    # class Config:
+    class Config:
     #     orm_mode = True
+        from_attributes = True
