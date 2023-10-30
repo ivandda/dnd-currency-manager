@@ -1,6 +1,7 @@
 from fastapi import Response, status, HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
+import re
 
 from app.database.database import get_db
 from app.schemas import party_schema, characters_schema
@@ -38,6 +39,9 @@ async def get_characters_in_party(id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=party_schema.PartyResponse, status_code=status.HTTP_201_CREATED)
 async def create_party(party: party_schema.PartyCreate, db: Session = Depends(get_db)):
     new_party = models.Parties(**party.model_dump())
+    if not (re.match("^[a-zA-Z0-9_.-]+$", new_party.name)):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Invalid party name")
     db.add(new_party)
     db.commit()
     db.refresh(new_party)
