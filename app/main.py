@@ -26,11 +26,16 @@ tags_metadata = [
     }
 ]
 
+# more swagger_ui_parameters :https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/
+swagger_ui_parameters = {"filter": True,
+                         "operationsSorter": "method"}
+
 app = FastAPI(
     title="DND currency manager",
     description="API to manage currency of DND characters and parties",
     version="0.0.1",
-    openapi_tags=tags_metadata
+    openapi_tags=tags_metadata,
+    swagger_ui_parameters=swagger_ui_parameters
 )
 
 
