@@ -13,14 +13,14 @@ router = APIRouter(
 
 
 @router.get("/", response_model=List[party_schema.PartyResponse])
-async def get_all_wallets(db: Session = Depends(get_db)):
+async def get_all_parties(db: Session = Depends(get_db)):
     all_parties = db.query(models.Parties).all()
 
     return all_parties
 
 
 @router.get("/{id}", response_model=party_schema.PartyResponse)
-async def get_one_wallet(id: int, db: Session = Depends(get_db)):
+async def get_one_party(id: int, db: Session = Depends(get_db)):
     party_by_id = query_get_party_by_id(db, id).first()
     check_if_exists(party_by_id)
 

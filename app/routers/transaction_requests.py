@@ -8,8 +8,8 @@ from app.utils.utils import *
 from app.utils.transactions import *
 
 router = APIRouter(
-    prefix="/transaction",
-    tags=["transaction"]
+    prefix="/character-transaction",
+    tags=["character transactions"]
 )
 
 
@@ -18,6 +18,14 @@ async def check_founds(id: int, db: Session = Depends(get_db)):
     copper = get_money_in_character_wallet(db, id)
     money_simplified = convert_to_simplified_return_dict(copper)
     return Money(**money_simplified)
+
+
+# @router.get("/getFoundsInCurrency/{id}/{currency_type}", response_model=Money)
+# # check_types
+# async def get_founds_simplified_to_currency_type(id: int, currency_type, db: Session = Depends(get_db)):
+#     money_in_copper = get_money_in_character_wallet(db, id)
+#     money_simplified_to_curr_type = converto_to_type_return_dict(money_in_copper, currency_type)
+#     return Money(**money_simplified_to_curr_type)
 
 
 @router.get("/checkFounds/{id}")
@@ -42,10 +50,10 @@ async def subtract_money_to_character(id: int, amount: Money, db: Session = Depe
                        + " (with id " + str(id) + ") has lost " + str(amount)}
 
 
-@router.put("/transfer/{id}/{id2}", status_code=status.HTTP_200_OK)
-async def transfer_money(id: int, amount: Money, id2: int, db: Session = Depends(get_db)):
+@router.put("/transfer/{remitter_id}/{beneficiary_id}", status_code=status.HTTP_200_OK)
+async def transfer_money(remitter_id: int, amount: Money, beneficiary_id: int, db: Session = Depends(get_db)):
     copper_amount = convert_to_copper(amount)
-    character_has_founds(db, id, copper_amount)
-    subtract_money(db, id, copper_amount)
-    add_money(db, id2, copper_amount)
+    character_has_founds(db, remitter_id, copper_amount)
+    subtract_money(db, remitter_id, copper_amount)
+    add_money(db, beneficiary_id, copper_amount)
     return {"message": "Transfer completed"}

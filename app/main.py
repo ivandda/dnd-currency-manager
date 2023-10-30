@@ -17,13 +17,13 @@ tags_metadata = [
         "description": "Operations with parties.",
     },
     {
+        "name": "character transactions",
+        "description": "Transaction between characters and currency info.",
+    },
+    {
         "name": "wallets",
         "description": "Operations with wallets.",
     },
-    {
-        "name": "transaction",
-        "description": "Operations with transactions.",
-    }
 ]
 
 # more swagger_ui_parameters :https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/
@@ -40,7 +40,7 @@ app = FastAPI(
 
 
 @app.get("/")
-async def main():
+async def redirect_to_home_page():
     return RedirectResponse(url="/docs", status_code=status.HTTP_302_FOUND)
 
 
