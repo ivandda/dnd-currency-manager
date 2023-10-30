@@ -6,7 +6,6 @@ from fastapi import status, Depends, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
 
-
 from app.schemas import characters_schema
 from app.database.database import get_db
 from app.utils.utils import *
@@ -30,6 +29,11 @@ async def create_character(character: characters_schema.CharacterCreate, db: Ses
     db.commit()
     db.refresh(new_character)
 
+    characterWallet = models.Wallet(character_owner_id=new_character.id)
+    db.add(characterWallet)
+    db.commit()
+    db.refresh(characterWallet)
+
     return new_character
 
 
@@ -45,4 +49,3 @@ async def get_one_character(id: int, db: Session = Depends(get_db)):
     check_if_exists(character)
 
     return character
-
