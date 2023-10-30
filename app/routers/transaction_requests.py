@@ -20,12 +20,12 @@ async def check_founds(id: int, db: Session = Depends(get_db)):
     return Money(**money_simplified)
 
 
-# @router.get("/getFoundsInCurrency/{id}/{currency_type}", response_model=Money)
-# # check_types
-# async def get_founds_simplified_to_currency_type(id: int, currency_type, db: Session = Depends(get_db)):
-#     money_in_copper = get_money_in_character_wallet(db, id)
-#     money_simplified_to_curr_type = converto_to_type_return_dict(money_in_copper, currency_type)
-#     return Money(**money_simplified_to_curr_type)
+@router.get("/getFoundsInCurrency/{id}/{currency_type}", response_model=Money)
+# check_types
+async def get_founds_simplified_to_currency_type(id: int, currency_type, db: Session = Depends(get_db)):
+    money_in_copper = get_money_in_character_wallet(db, id)
+    money_simplified_to_curr_type = converto_to_type_return_dict(money_in_copper, currency_type)
+    return Money(**money_simplified_to_curr_type)
 
 
 @router.get("/checkFounds/{id}")
