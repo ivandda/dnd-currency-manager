@@ -22,16 +22,16 @@ async def get_all_parties(db: Session = Depends(get_db)):
 
 @router.get("/{id}", response_model=party_schema.PartyResponse)
 async def get_one_party(id: int, db: Session = Depends(get_db)):
-    party_by_id = query_get_party_by_id(db, id).first()
-    check_if_exists(party_by_id)
+    check_party_id_exists(db, id)
+    party_by_id = query_get_party_by_id(db, id)
 
     return party_by_id
 
 
 @router.get("/{id}/characters", response_model=List[characters_schema.CharacterResponse])
 async def get_characters_in_party(id: int, db: Session = Depends(get_db)):
-    party = query_get_party_by_id(db, id).first()
-    check_if_exists(party)
+    check_party_id_exists(db, id)
+    party = query_get_party_by_id(db, id)
 
     return party.characters
 
@@ -41,7 +41,10 @@ async def create_party(party: party_schema.PartyCreate, db: Session = Depends(ge
     new_party = models.Parties(**party.model_dump())
     if not (re.match("^[a-zA-Z0-9_.-]+$", new_party.name)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Invalid party name")
+                            detail="Invalid party name, valid characters: a-z, A-Z, 0-9, _ , . , -")
+
+    check_party_name_exists(new_party.name, db)
+
     db.add(new_party)
     db.commit()
     db.refresh(new_party)
@@ -49,24 +52,28 @@ async def create_party(party: party_schema.PartyCreate, db: Session = Depends(ge
     return new_party
 
 
-@router.put("/{id}", response_model=party_schema.PartyResponse)
-async def add_characters_to_party(id: int, characters: party_schema.PartyAddCharacters, db: Session = Depends(get_db)):
-    party = query_get_party_by_id(db, id).first()
-    check_if_exists(party)
+@router.put("/{party_id}/{character_id}", response_model=party_schema.PartyResponse)
+async def add_characters_to_party(party_id: int, character_id: int, db: Session = Depends(get_db)):
+    check_party_id_exists(db, party_id)
+    await check_character_id_exists(db, character_id)
 
-    for character_id in characters.characters_id:
-        print(character_id)
-        if character_id in [character.id for character in party.characters]:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                                detail="No characters added, character "
-                                       + get_character_name(db, character_id)
-                                       + " (id: " + str(character_id)
-                                       + ") is already in party")
+    party = query_get_party_by_id(db, party_id)
+    character = query_get_character_by_id(db, character_id)
 
-        character = db.query(models.Characters).filter(models.Characters.id == character_id).first()
-        check_if_exists(character)
-        party.characters.append(character)
+    check_character_is_in_party(db, party_id, character_id)
 
+    party.characters.append(character)
     db.commit()
+
+    # for character_id in characters.characters_id:
+    #     if character_id in get_all_characters(db):
+    #         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+    #                             detail="No characters added, character "
+    #                                    + get_character_name(db, character_id)
+    #                                    + " (id: " + str(character_id)
+    #                                    + ") is already in party")
+    #
+    #     character = db.query(models.Characters).filter(models.Characters.id == character_id).first()
+    #     check_if_exists(character)
 
     return party
