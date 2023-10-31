@@ -65,15 +65,4 @@ async def add_characters_to_party(party_id: int, character_id: int, db: Session 
     party.characters.append(character)
     db.commit()
 
-    # for character_id in characters.characters_id:
-    #     if character_id in get_all_characters(db):
-    #         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-    #                             detail="No characters added, character "
-    #                                    + get_character_name(db, character_id)
-    #                                    + " (id: " + str(character_id)
-    #                                    + ") is already in party")
-    #
-    #     character = db.query(models.Characters).filter(models.Characters.id == character_id).first()
-    #     check_if_exists(character)
-
     return party

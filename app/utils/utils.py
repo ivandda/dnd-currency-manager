@@ -22,7 +22,8 @@ def query_get_character_by_id(db, id):
 
 
 def get_character_name(db, id):
-    return query_get_character_by_id(db, id).first().name
+    # return query_get_character_by_id(db, id).first().name
+    return query_get_character_by_id(db, id).name
 
 
 def get_all_characters(db):
@@ -49,14 +50,18 @@ def get_all_party_ids(db):
     return [party.id for party in get_all_parties(db)]
 
 
+# def get_all_characters_in_party(db, party_id):
+#     party = query_get_party_by_id(db, party_id)
+#     return party.characters
+
+
 def get_all_characters_in_party(db, party_id):
     party = query_get_party_by_id(db, party_id)
-    return party.characters
-
-
-def get_all_characters_in_party_id(db, party_id):
-    party = query_get_party_by_id(db, party_id)
     return [character.id for character in party.characters]
+
+
+def get_all_wallet_ids(db):
+    return [wallet.id for wallet in db.query(models.Wallet).all()]
 
 
 async def check_character_id_exists(db, id):
@@ -84,6 +89,12 @@ def check_party_name_exists(name, db):
 
 
 def check_character_is_in_party(db, party_id, character_id):
-    if character_id in get_all_characters_in_party_id(db, party_id):
+    if character_id in get_all_characters_in_party(db, party_id):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="Character is already in party")
+
+
+def check_wallet_id_exists(db, id):
+    if id not in get_all_wallet_ids(db):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Wallet does not exist")

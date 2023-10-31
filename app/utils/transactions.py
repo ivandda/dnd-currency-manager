@@ -1,11 +1,24 @@
+from enum import Enum
+
 from fastapi import Response, status, HTTPException, Depends, APIRouter
 
 from app.utils.utils import *
 from app.schemas.money import Money
 
+
 # services
 
-values = {"platinum": 1000, "gold": 100, "electrum": 50, "silver": 10, "copper": 1}
+class Currencies(int, Enum):
+    platinum = 1000
+    gold = 100
+    electrum = 50
+    silver = 10
+    copper = 1
+
+
+# values = {"platinum": 1000, "gold": 100, "electrum": 50, "silver": 10, "copper": 1}
+values = {currency.name: currency.value for currency in Currencies}
+currency_types = [currency.name for currency in Currencies]
 
 
 def convert_to_copper(money: Money):
@@ -57,7 +70,7 @@ def get_wallet_by_character_id(db, character_id):
 
 
 def get_money_in_wallet(db, id):
-    wallet = query_get_wallet_by_id(db, id).first()
+    wallet = query_get_wallet_by_id(db, id)
 
     return wallet.money
 
@@ -130,3 +143,9 @@ def divide_money_evenly_between_characters(db, total_money, characters):
     amounts = divide_money_evenly(total_money, len(characters))
     for i in range(len(characters)):
         subtract_money(db, characters[i].id, amounts[i])
+
+
+def check_currency_type(currency_type):
+    if currency_type not in currency_types:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Invalid currency type. Valid currency types: " + str(currency_types))

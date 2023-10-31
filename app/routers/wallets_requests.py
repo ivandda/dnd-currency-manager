@@ -21,6 +21,8 @@ async def get_all_wallets(db: Session = Depends(get_db)):
 
 @router.get("/{id}", response_model=wallets_schema.WalletResponse)
 async def get_one_wallet(id: int, db: Session = Depends(get_db)):
+    check_wallet_id_exists(db, id)
+
     wallet_by_id = query_get_wallet_by_id(db, id).first()
     check_if_exists(wallet_by_id)
 

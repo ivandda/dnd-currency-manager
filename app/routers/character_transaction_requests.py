@@ -15,27 +15,36 @@ router = APIRouter(
 
 @router.get("/getFounds/{id}", response_model=Money)
 async def check_founds(id: int, db: Session = Depends(get_db)):
+    await check_character_id_exists(db, id)
+
     copper = get_money_in_character_wallet(db, id)
     money_simplified = convert_to_simplified_return_dict(copper)
     return Money(**money_simplified)
 
 
 @router.get("/getFoundsInCurrency/{id}/{currency_type}", response_model=Money)
-# check_types
-async def get_founds_simplified_to_currency_type(id: int, currency_type, db: Session = Depends(get_db)):
+async def get_founds_simplified_to_currency_type(id: int, currency_type: str, db: Session = Depends(get_db)):
+    await check_character_id_exists(db, id)
+    check_currency_type(currency_type)
+
     money_in_copper = get_money_in_character_wallet(db, id)
     money_simplified_to_curr_type = converto_to_type_return_dict(money_in_copper, currency_type)
     return Money(**money_simplified_to_curr_type)
 
 
-@router.get("/checkFounds/{id}")
-async def check_founds(id: int, amount: Money, db: Session = Depends(get_db)):
-    copper_amount = convert_to_copper(amount)
-    return character_has_founds(db, id, copper_amount)
+# error when making this a get requests because of the request body
+# @router.post("/checkFounds/{id}")
+# async def check_founds(id: int, amount: Money, db: Session = Depends(get_db)):
+#     await check_character_id_exists(db, id)
+#
+#     copper_amount = convert_to_copper(amount)
+#     return character_has_founds(db, id, copper_amount)
 
 
 @router.put("/sum/{id}/", status_code=status.HTTP_200_OK)
 async def sum_money_to_character(id: int, amount: Money, db: Session = Depends(get_db)):
+    await check_character_id_exists(db, id)
+
     copper_amount = convert_to_copper(amount)
     add_money(db, id, copper_amount)
     return {"message": "Character " + get_character_name(db, id)
@@ -44,6 +53,8 @@ async def sum_money_to_character(id: int, amount: Money, db: Session = Depends(g
 
 @router.put("/subtract/{id}/", status_code=status.HTTP_200_OK)
 async def subtract_money_to_character(id: int, amount: Money, db: Session = Depends(get_db)):
+    await check_character_id_exists(db, id)
+
     copper_amount = convert_to_copper(amount)
     subtract_money(db, id, copper_amount)
     return {"message": "Character " + get_character_name(db, id)
@@ -52,6 +63,9 @@ async def subtract_money_to_character(id: int, amount: Money, db: Session = Depe
 
 @router.put("/transfer/{remitter_id}/{beneficiary_id}", status_code=status.HTTP_200_OK)
 async def transfer_money(remitter_id: int, amount: Money, beneficiary_id: int, db: Session = Depends(get_db)):
+    await check_character_id_exists(db, remitter_id)
+    await check_character_id_exists(db, beneficiary_id)
+
     copper_amount = convert_to_copper(amount)
     character_has_founds(db, remitter_id, copper_amount)
     subtract_money(db, remitter_id, copper_amount)
