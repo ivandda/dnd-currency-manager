@@ -18,7 +18,7 @@ async def check_founds(id: int, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
 
     copper = get_money_in_character_wallet(db, id)
-    money_simplified = convert_to_simplified_return_dict(copper)
+    money_simplified = convert_to_simplified(copper)
     return Money(**money_simplified)
 
 
@@ -28,7 +28,7 @@ async def get_founds_simplified_to_currency_type(id: int, currency_type: str, db
     check_currency_type(currency_type)
 
     money_in_copper = get_money_in_character_wallet(db, id)
-    money_simplified_to_curr_type = converto_to_type_return_dict(money_in_copper, currency_type)
+    money_simplified_to_curr_type = converto_to_type(money_in_copper, currency_type)
     return Money(**money_simplified_to_curr_type)
 
 
@@ -67,7 +67,7 @@ async def transfer_money(remitter_id: int, amount: Money, beneficiary_id: int, d
     await check_character_id_exists(db, beneficiary_id)
 
     copper_amount = convert_to_copper(amount)
-    character_has_founds(db, remitter_id, copper_amount)
+    check_character_has_founds(db, remitter_id, copper_amount)
     subtract_money(db, remitter_id, copper_amount)
     add_money(db, beneficiary_id, copper_amount)
     return {"message": "Transfer completed"}

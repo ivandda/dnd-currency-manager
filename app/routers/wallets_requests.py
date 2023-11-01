@@ -24,7 +24,6 @@ async def get_one_wallet(id: int, db: Session = Depends(get_db)):
     check_wallet_id_exists(db, id)
 
     wallet_by_id = query_get_wallet_by_id(db, id).first()
-    check_if_exists(wallet_by_id)
 
     return wallet_by_id
 

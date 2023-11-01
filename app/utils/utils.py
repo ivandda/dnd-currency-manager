@@ -1,20 +1,24 @@
 from fastapi import status, HTTPException
 
 from app.models import models
+from app.schemas.party_schema import PartyResponse
 
 
 # repositorios
-def check_if_exists(exists):
-    if not exists:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Does not exist")
+# def check_if_exists(exists):
+#     if not exists:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Does not exist")
+
+def query_get_wallet_by_id(db, id):
+    return db.query(models.Wallet).filter(models.Wallet.id == id).first()
 
 
 def query_get_party_by_id(db, id):
     return db.query(models.Parties).filter(models.Parties.id == id).first()
 
 
-def query_get_wallet_by_id(db, id):
-    return db.query(models.Wallet).filter(models.Wallet.id == id).first()
+def get_all_parties_character_is_in(db, character_id):
+    return db.query(models.Parties).filter(models.Parties.characters.any(id=character_id)).all()
 
 
 def query_get_character_by_id(db, id):
@@ -28,6 +32,21 @@ def get_character_name(db, id):
 
 def get_all_characters(db):
     return db.query(models.Characters).all()
+
+
+def get_characters_in_party(db, party_id):
+    party = query_get_party_by_id(db, party_id)
+    return party.characters
+
+
+def get_info_of_party_with_character(db, party_id) -> PartyResponse:
+    party = query_get_party_by_id(db, party_id)
+    return PartyResponse(id=party.id, name=party.name, created_at=party.created_at)
+
+
+# def get_info_of_wallet_with_character(db, character_id) -> WalletResponse:
+#     wallet = get_wallet_with_character_id(db, character_id)
+#     return WalletResponse(id=wallet.id, money=wallet.money, character_owner_id=wallet.character_owner_id)
 
 
 def get_all_character_names(db):

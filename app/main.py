@@ -3,7 +3,7 @@ from starlette.responses import RedirectResponse
 
 from app.models import models
 from app.routers import (wallets_requests, characters_requests,
-                         party_requests, home_requests, character_transaction_requests)
+                         party_requests, home_requests, character_transaction_requests, party_transaction_requests)
 from app.database.database import engine
 
 models.Base.metadata.create_all(bind=engine)
@@ -23,6 +23,14 @@ tags_metadata = [
     {
         "name": "wallets",
         "description": "Operations with wallets.",
+    },
+    {
+        "name": "party transactions",
+        "description": "Transaction between parties and currency info.",
+    },
+    {
+        "name": "home",
+        "description": "Home page.",
     },
 ]
 
@@ -49,3 +57,4 @@ app.include_router(characters_requests.router)
 app.include_router(party_requests.router)
 app.include_router(wallets_requests.router)
 app.include_router(character_transaction_requests.router)
+app.include_router(party_transaction_requests.router)
