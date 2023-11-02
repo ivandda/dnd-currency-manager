@@ -6,10 +6,12 @@ from fastapi import status, Depends, APIRouter
 from sqlalchemy.orm import Session
 from typing import List
 
+from app.dependencies import get_db
 from app.schemas import characters_schema
-from app.database.database import get_db
-from app.utils.transactions import *
-from app.utils.utils import *
+from app.utils.checks import *
+from app.utils.currency import *
+from app.utils.getters import *
+
 
 router = APIRouter(
     prefix="/characters",
@@ -50,7 +52,7 @@ async def get_characters(db: Session = Depends(get_db)):
 @router.get("/{id}", response_model=characters_schema.CharacterResponse, status_code=status.HTTP_200_OK)
 async def get_one_character(id: int, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
-    character = query_get_character_by_id(db, id)
+    character = get_character_by_id(db, id)
 
     return character
 
@@ -58,11 +60,11 @@ async def get_one_character(id: int, db: Session = Depends(get_db)):
 @router.get("/get-all-character-info/{id}", response_model=characters_schema.CharacterInfoResponse)
 async def get_all_character_info(id: int, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
-    character = query_get_character_by_id(db, id)
+    character = get_character_by_id(db, id)
 
     money_simplified = convert_to_simplified(get_money_in_character_wallet(db, id))
 
-    character_parties_info = [get_info_of_party_with_character(db, party.id)
+    character_parties_info = [get_all_info_of_party(db, party.id)
                               for party in get_all_parties_character_is_in(db, id)]
 
     return characters_schema.CharacterInfoResponse(id=character.id,

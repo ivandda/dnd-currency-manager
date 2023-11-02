@@ -1,11 +1,14 @@
-from fastapi import Response, status, HTTPException, Depends, APIRouter
-from sqlalchemy.orm import Session
-from typing import List
 import re
+from typing import List
 
-from app.database.database import get_db
+from fastapi import Depends, APIRouter
+from sqlalchemy.orm import Session
+
+from app.dependencies import get_db
 from app.schemas import party_schema, characters_schema
-from app.utils.utils import *
+from app.utils.checks import *
+from app.utils.currency import *
+from app.utils.getters import *
 
 router = APIRouter(
     prefix="/party",
@@ -23,7 +26,7 @@ async def get_all_parties(db: Session = Depends(get_db)):
 @router.get("/{id}", response_model=party_schema.PartyResponse)
 async def get_one_party(id: int, db: Session = Depends(get_db)):
     check_party_id_exists(db, id)
-    party_by_id = query_get_party_by_id(db, id)
+    party_by_id = get_party_by_id(db, id)
 
     return party_by_id
 
@@ -31,7 +34,7 @@ async def get_one_party(id: int, db: Session = Depends(get_db)):
 @router.get("/{id}/characters", response_model=List[characters_schema.CharacterResponse])
 async def get_characters_in_party(id: int, db: Session = Depends(get_db)):
     check_party_id_exists(db, id)
-    party = query_get_party_by_id(db, id)
+    party = get_party_by_id(db, id)
 
     return party.characters
 
@@ -57,8 +60,8 @@ async def add_characters_to_party(party_id: int, character_id: int, db: Session 
     check_party_id_exists(db, party_id)
     await check_character_id_exists(db, character_id)
 
-    party = query_get_party_by_id(db, party_id)
-    character = query_get_character_by_id(db, character_id)
+    party = get_party_by_id(db, party_id)
+    character = get_character_by_id(db, character_id)
 
     check_character_is_in_party(db, party_id, character_id)
 

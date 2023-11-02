@@ -1,11 +1,9 @@
-from fastapi import Response, status, HTTPException, Depends, APIRouter
+from fastapi import Depends, APIRouter
 from sqlalchemy.orm import Session
-from typing import List
 
-from app.database.database import get_db
-from app.schemas import party_schema, characters_schema
-from app.utils.utils import *
-from app.utils.transactions import *
+from app.dependencies import get_db
+from app.utils.checks import *
+from app.utils.currency import *
 
 router = APIRouter(
     prefix="/party-transaction",
@@ -33,7 +31,7 @@ async def party_transfers_to_character(party_id: int, character_id: int, amount:
     check_party_id_exists(db, party_id)
 
     copper_amount = convert_to_copper(amount)
-    characters = get_characters_in_party(db, party_id)
+    characters = get_all_characters_in_party(db, party_id)
     check_founds_for_characters(db, copper_amount, characters)
 
     subtract_money_from_characters_in_party(db, copper_amount, party_id)
@@ -48,8 +46,8 @@ async def party_transfers_to_party(party_id_from: int, party_id_to: int, amount:
     check_party_id_exists(db, party_id_to)
 
     copper_amount = convert_to_copper(amount)
-    characters = get_characters_in_party(db, party_id_from)
-    check_founds_for_characters(db, characters, copper_amount)
+    characters = get_all_characters_in_party(db, party_id_from)
+    check_founds_for_characters(db, copper_amount, characters)
 
     subtract_money_from_characters_in_party(db, copper_amount, party_id_from)
     add_money_to_characters_in_party(db, copper_amount, party_id_to)

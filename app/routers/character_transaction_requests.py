@@ -1,11 +1,9 @@
-from fastapi import Response, status, HTTPException, Depends, APIRouter
+from fastapi import Depends, APIRouter
 from sqlalchemy.orm import Session
-from typing import List
 
-from app.database.database import get_db
-from app.schemas import party_schema, characters_schema
-from app.utils.utils import *
-from app.utils.transactions import *
+from app.dependencies import get_db
+from app.utils.checks import *
+from app.utils.currency import *
 
 router = APIRouter(
     prefix="/character-transaction",
@@ -30,15 +28,6 @@ async def get_founds_simplified_to_currency_type(id: int, currency_type: str, db
     money_in_copper = get_money_in_character_wallet(db, id)
     money_simplified_to_curr_type = converto_to_type(money_in_copper, currency_type)
     return Money(**money_simplified_to_curr_type)
-
-
-# error when making this a get requests because of the request body
-# @router.post("/checkFounds/{id}")
-# async def check_founds(id: int, amount: Money, db: Session = Depends(get_db)):
-#     await check_character_id_exists(db, id)
-#
-#     copper_amount = convert_to_copper(amount)
-#     return character_has_founds(db, id, copper_amount)
 
 
 @router.put("/sum/{id}/", status_code=status.HTTP_200_OK)

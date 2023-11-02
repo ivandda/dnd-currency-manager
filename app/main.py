@@ -1,12 +1,13 @@
 from fastapi import FastAPI, status
 from starlette.responses import RedirectResponse
 
-from app.models import models
-from app.routers import (wallets_requests, characters_requests,
-                         party_requests, home_requests, character_transaction_requests, party_transaction_requests)
 from app.database.database import engine
+from app.models import models
+from app.routers import home_requests, characters_requests, party_requests, wallets_requests, \
+    character_transaction_requests, party_transaction_requests
 
 models.Base.metadata.create_all(bind=engine)
+
 tags_metadata = [
     {
         "name": "characters",
@@ -55,6 +56,13 @@ async def redirect_to_home_page():
 app.include_router(home_requests.router)
 app.include_router(characters_requests.router)
 app.include_router(party_requests.router)
-app.include_router(wallets_requests.router)
+# app.include_router(wallets_requests.router)
 app.include_router(character_transaction_requests.router)
 app.include_router(party_transaction_requests.router)
+
+# app.include_router(home_requests)
+# app.include_router(characters_requests)
+# app.include_router(party_requests)
+# app.include_router(wallets_requests)
+# app.include_router(character_transaction_requests)
+# app.include_router(party_transaction_requests)

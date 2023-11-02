@@ -1,5 +1,5 @@
-fastapi
-uvicorn
-SQLAlchemy
-pydantic[email]
-psycopg2-binary
+fastapi~=0.101.0
+SQLAlchemy~=2.0.21
+pydantic[email]~=2.1.1
+starlette~=0.27.0
+pytest~=7.4.3

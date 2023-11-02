@@ -1,11 +1,12 @@
-from fastapi import Response, status, HTTPException, Depends, APIRouter
-from sqlalchemy.orm import Session
 from typing import List
 
-from app.models import models
-from app.database.database import get_db
+from fastapi import Depends, APIRouter
+from sqlalchemy.orm import Session
+
+from app.dependencies import get_db
 from app.schemas import wallets_schema
-from app.utils.utils import *
+from app.utils.checks import *
+from app.utils.getters import *
 
 router = APIRouter(
     prefix="/wallets",
@@ -23,10 +24,9 @@ async def get_all_wallets(db: Session = Depends(get_db)):
 async def get_one_wallet(id: int, db: Session = Depends(get_db)):
     check_wallet_id_exists(db, id)
 
-    wallet_by_id = query_get_wallet_by_id(db, id).first()
+    wallet_by_id = get_wallet_by_id(db, id).first()
 
     return wallet_by_id
-
 
 # @router.post("/", response_model=wallets_schema.WalletResponse, status_code=status.HTTP_201_CREATED)
 # async def create_wallet(wallet: wallets_schema.WalletCreate, db: Session = Depends(get_db)):
