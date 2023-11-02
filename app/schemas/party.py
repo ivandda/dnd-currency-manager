@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import List
+
 from pydantic import BaseModel
 
 
@@ -17,5 +18,4 @@ class PartyResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        # orm_mode = True
         from_attributes = True

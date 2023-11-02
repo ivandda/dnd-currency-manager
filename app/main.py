@@ -3,8 +3,8 @@ from starlette.responses import RedirectResponse
 
 from app.database.database import engine
 from app.models import models
-from app.routers import home_requests, characters_requests, party_requests, wallets_requests, \
-    character_transaction_requests, party_transaction_requests
+from app.routers import home, characters, party, wallets, \
+    character_transaction, party_transaction
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -53,16 +53,10 @@ async def redirect_to_home_page():
     return RedirectResponse(url="/docs", status_code=status.HTTP_302_FOUND)
 
 
-app.include_router(home_requests.router)
-app.include_router(characters_requests.router)
-app.include_router(party_requests.router)
+app.include_router(home.router)
+app.include_router(characters.router)
+app.include_router(party.router)
 # app.include_router(wallets_requests.router)
-app.include_router(character_transaction_requests.router)
-app.include_router(party_transaction_requests.router)
+app.include_router(character_transaction.router)
+app.include_router(party_transaction.router)
 
-# app.include_router(home_requests)
-# app.include_router(characters_requests)
-# app.include_router(party_requests)
-# app.include_router(wallets_requests)
-# app.include_router(character_transaction_requests)
-# app.include_router(party_transaction_requests)

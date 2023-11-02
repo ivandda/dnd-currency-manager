@@ -1,5 +1,5 @@
 from app.models import models
-from app.schemas.party_schema import PartyResponse
+from app.schemas.party import PartyResponse
 
 
 # CHARACTERS---------------------------------------------------:

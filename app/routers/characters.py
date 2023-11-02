@@ -1,17 +1,15 @@
-from http.client import HTTPException
-
 import re
-
-from fastapi import status, Depends, APIRouter
-from sqlalchemy.orm import Session
+from http.client import HTTPException
 from typing import List
 
+from fastapi import Depends, APIRouter
+from sqlalchemy.orm import Session
+
 from app.dependencies import get_db
-from app.schemas import characters_schema
+from app.schemas import characters
 from app.utils.checks import *
 from app.utils.currency import *
 from app.utils.getters import *
-
 
 router = APIRouter(
     prefix="/characters",
@@ -19,8 +17,8 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=characters_schema.CharacterResponse, status_code=status.HTTP_201_CREATED)
-async def create_character(character: characters_schema.CharacterCreate, db: Session = Depends(get_db)):
+@router.post("/", response_model=characters.CharacterResponse, status_code=status.HTTP_201_CREATED)
+async def create_character(character: characters.CharacterCreate, db: Session = Depends(get_db)):
     # new_character = models.Characters(**character.model_dump())
     character_name = character.name
 
@@ -44,12 +42,12 @@ async def create_character(character: characters_schema.CharacterCreate, db: Ses
     return new_character
 
 
-@router.get("/", response_model=List[characters_schema.CharacterResponse], status_code=status.HTTP_200_OK)
+@router.get("/", response_model=List[characters.CharacterResponse], status_code=status.HTTP_200_OK)
 async def get_characters(db: Session = Depends(get_db)):
     return get_all_characters(db)
 
 
-@router.get("/{id}", response_model=characters_schema.CharacterResponse, status_code=status.HTTP_200_OK)
+@router.get("/{id}", response_model=characters.CharacterResponse, status_code=status.HTTP_200_OK)
 async def get_one_character(id: int, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
     character = get_character_by_id(db, id)
@@ -57,7 +55,7 @@ async def get_one_character(id: int, db: Session = Depends(get_db)):
     return character
 
 
-@router.get("/get-all-character-info/{id}", response_model=characters_schema.CharacterInfoResponse)
+@router.get("/get-all-character-info/{id}", response_model=characters.CharacterAllInfoResponse)
 async def get_all_character_info(id: int, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
     character = get_character_by_id(db, id)
@@ -67,8 +65,8 @@ async def get_all_character_info(id: int, db: Session = Depends(get_db)):
     character_parties_info = [get_all_info_of_party(db, party.id)
                               for party in get_all_parties_character_is_in(db, id)]
 
-    return characters_schema.CharacterInfoResponse(id=character.id,
-                                                   name=character.name,
-                                                   created_at=character.created_at,
-                                                   wallet=money_simplified,
-                                                   parties=character_parties_info)
+    return characters.CharacterAllInfoResponse(id=character.id,
+                                               name=character.name,
+                                               created_at=character.created_at,
+                                               wallet=money_simplified,
+                                               parties=character_parties_info)

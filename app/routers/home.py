@@ -1,4 +1,4 @@
-from fastapi import status, Depends, APIRouter
+from fastapi import APIRouter
 
 router = APIRouter(
     prefix="/home",
