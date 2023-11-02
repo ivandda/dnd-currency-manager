@@ -2,42 +2,11 @@ from fastapi import FastAPI, status
 from starlette.responses import RedirectResponse
 
 from app.database.database import engine
+from app.dependencies import tags_metadata, swagger_ui_parameters
 from app.models import models
-from app.routers import home, characters, party, wallets, \
-    character_transaction, party_transaction
+from app.routers import home, characters, party, character_transaction, party_transaction
 
 models.Base.metadata.create_all(bind=engine)
-
-tags_metadata = [
-    {
-        "name": "characters",
-        "description": "Operations with characters.",
-    },
-    {
-        "name": "party",
-        "description": "Operations with parties.",
-    },
-    {
-        "name": "character transactions",
-        "description": "Transaction between characters and currency info.",
-    },
-    {
-        "name": "wallets",
-        "description": "Operations with wallets.",
-    },
-    {
-        "name": "party transactions",
-        "description": "Transaction between parties and currency info.",
-    },
-    {
-        "name": "home",
-        "description": "Home page.",
-    },
-]
-
-# more swagger_ui_parameters :https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/
-swagger_ui_parameters = {"filter": True,
-                         "operationsSorter": "method"}
 
 app = FastAPI(
     title="DND currency manager",
@@ -56,7 +25,5 @@ async def redirect_to_home_page():
 app.include_router(home.router)
 app.include_router(characters.router)
 app.include_router(party.router)
-# app.include_router(wallets_requests.router)
 app.include_router(character_transaction.router)
 app.include_router(party_transaction.router)
-
