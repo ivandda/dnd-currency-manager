@@ -1,15 +1,10 @@
 from datetime import datetime
-from typing import List
 
 from pydantic import BaseModel
 
 
 class PartyCreate(BaseModel):
     name: str
-
-
-class PartyAddCharacters(BaseModel):
-    characters_id: List[int]
 
 
 class PartyResponse(BaseModel):
@@ -19,3 +14,10 @@ class PartyResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PartyAllInfoResponse(BaseModel):
+    id: int
+    name: str
+    characters: list
+    created_at: datetime

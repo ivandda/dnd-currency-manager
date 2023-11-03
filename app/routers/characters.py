@@ -55,18 +55,8 @@ async def get_one_character(id: int, db: Session = Depends(get_db)):
     return character
 
 
-@router.get("/get-all-character-info/{id}", response_model=characters.CharacterAllInfoResponse)
-async def get_all_character_info(id: int, db: Session = Depends(get_db)):
+@router.get("/all-info/{id}", response_model=characters.CharacterAllInfoResponse, status_code=status.HTTP_200_OK)
+async def all_character_info(id: int, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
-    character = get_character_by_id(db, id)
+    return get_all_character_info(db, id)
 
-    money_simplified = convert_to_simplified(get_money_in_character_wallet(db, id))
-
-    character_parties_info = [get_all_info_of_party(db, party.id)
-                              for party in get_all_parties_character_is_in(db, id)]
-
-    return characters.CharacterAllInfoResponse(id=character.id,
-                                               name=character.name,
-                                               created_at=character.created_at,
-                                               wallet=money_simplified,
-                                               parties=character_parties_info)

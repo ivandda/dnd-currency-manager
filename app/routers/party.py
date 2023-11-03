@@ -31,6 +31,12 @@ async def get_one_party(id: int, db: Session = Depends(get_db)):
     return party_by_id
 
 
+@router.get("/all-info/{id}/", response_model=party.PartyAllInfoResponse)
+async def get_all_party_info(id: int, db: Session = Depends(get_db)):
+    check_party_id_exists(db, id)
+    return get_all_info_of_party(db, id)
+
+
 @router.get("/{id}/characters", response_model=List[characters.CharacterResponse])
 async def get_characters_in_party(id: int, db: Session = Depends(get_db)):
     check_party_id_exists(db, id)

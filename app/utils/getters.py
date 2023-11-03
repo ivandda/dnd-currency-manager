@@ -1,5 +1,7 @@
 from app.models import models
-from app.schemas.party import PartyResponse
+from app.schemas.characters import CharacterAllInfoResponse
+from app.schemas.party import PartyAllInfoResponse, PartyResponse
+from app.utils.currency_convertions import convert_to_simplified
 
 
 # CHARACTERS---------------------------------------------------:
@@ -26,6 +28,17 @@ def get_character_name(db, character_id):
 def get_all_parties_character_is_in(db, character_id):
     return db.query(models.Parties).filter(models.Parties.characters.any(id=character_id)).all()
 
+
+def get_all_character_info(db, character_id) -> CharacterAllInfoResponse:
+    character = get_character_by_id(db, character_id)
+    character_money_simplified = convert_to_simplified(get_money_in_character_wallet(db, character_id))
+    all_character_parties = [get_info_of_party_for_character(db, party.id)
+                             for party in get_all_parties_character_is_in(db, character_id)]
+    return CharacterAllInfoResponse(id=character.id
+                                    , name=character.name
+                                    , wallet=character_money_simplified
+                                    , parties=all_character_parties
+                                    , created_at=character.created_at)
 
 #
 #
@@ -95,6 +108,18 @@ def get_all_characters_id_in_party(db, party_id):
     return [character.id for character in party.characters]
 
 
-def get_all_info_of_party(db, party_id) -> PartyResponse:
+def get_info_of_party_for_character(db, party_id) -> PartyResponse:
     party = get_party_by_id(db, party_id)
-    return PartyResponse(id=party.id, name=party.name, created_at=party.created_at)
+    return PartyResponse(id=party.id,
+                         name=party.name,
+                         created_at=party.created_at)
+
+
+def get_all_info_of_party(db, party_id) -> PartyAllInfoResponse:
+    party = get_party_by_id(db, party_id)
+    all_characters_in_party = [get_all_character_info(db, character.id)
+                               for character in get_all_characters_in_party(db, party_id)]
+    return PartyAllInfoResponse(id=party.id,
+                                name=party.name,
+                                characters=all_characters_in_party,
+                                created_at=party.created_at)

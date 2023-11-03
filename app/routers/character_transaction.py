@@ -2,8 +2,10 @@ from fastapi import Depends, APIRouter
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_db
+from app.schemas.money import Money
 from app.utils.checks import *
 from app.utils.currency import *
+from app.utils.currency_convertions import converto_to_type, convert_to_copper
 
 router = APIRouter(
     prefix="/character-transaction",
