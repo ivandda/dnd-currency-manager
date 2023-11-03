@@ -1,6 +1,6 @@
 from fastapi import status, HTTPException
 
-from app.utils.currency_convertions import currency_types
+from app.dependencies import currency_types
 from app.utils.getters import get_all_character_ids, get_all_character_names, get_all_party_ids, get_all_party_names, \
     get_all_characters_id_in_party, get_all_wallet_ids
 

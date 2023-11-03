@@ -11,7 +11,7 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title="DND currency manager",
     description="API to manage currency of DND characters and parties",
-    version="0.0.1",
+    version="0.1.8",
     openapi_tags=tags_metadata,
     swagger_ui_parameters=swagger_ui_parameters
 )
