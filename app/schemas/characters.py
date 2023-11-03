@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 
 from pydantic import BaseModel
 
@@ -22,5 +23,5 @@ class CharacterAllInfoResponse(BaseModel):
     id: int
     name: str
     wallet: dict
-    parties: list[PartyResponse]
+    parties: List[PartyResponse]
     created_at: datetime
