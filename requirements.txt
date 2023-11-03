@@ -3,4 +3,3 @@ SQLAlchemy~=2.0.21
 starlette~=0.27.0
 pydantic~=2.1.1
 psycopg2-binary~=2.8.6
-```
