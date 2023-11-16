@@ -1,4 +1,4 @@
-from app.dependencies import values
+from app.utils.constants import values
 from app.schemas.money import Money
 
 
