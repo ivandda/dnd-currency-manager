@@ -17,7 +17,7 @@ def add_money(db, id: int, amount: int):
 
 
 def subtract_money(db, id, amount):
-    if check_character_has_founds(db, id, amount):
+    if check_character_has_funds(db, id, amount):
         wallet = get_wallet_with_character_id(db, id)
         wallet.money -= amount
         db.commit()
@@ -65,7 +65,7 @@ def subtract_money_from_characters_in_party(db, total_money: int, party_id: int)
     subtract_money_from_characters(db, total_money, characters)
 
 
-def check_character_has_founds(db, character_id: int, amount: int) -> bool:
+def check_character_has_funds(db, character_id: int, amount: int) -> bool:
     character_money = get_money_in_character_wallet(db, character_id)
 
     if character_money < amount:
@@ -80,11 +80,11 @@ def check_character_has_founds(db, character_id: int, amount: int) -> bool:
         return True
 
 
-def check_founds_for_characters(db, total_money: int, characters: list):
+def check_funds_for_characters(db, total_money: int, characters: list):
     money_by_character = divide_money_evenly(total_money, len(characters))
 
     for money, character in zip(money_by_character, characters):
-        if not check_character_has_founds(db, character.id, money):
+        if not check_character_has_funds(db, character.id, money):
             return HTTPException(status_code=status.HTTP_409_CONFLICT,
                                  detail="Character " + get_character_name(db, character.id)
                                         + " (with id " + str(character.id) + ") does not have enough money")

@@ -13,8 +13,8 @@ router = APIRouter(
 )
 
 
-@router.get("/getFounds/{id}", response_model=Money)
-async def check_founds(id: int, db: Session = Depends(get_db)):
+@router.get("/getfunds/{id}", response_model=Money)
+async def check_funds(id: int, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
 
     copper = get_money_in_character_wallet(db, id)
@@ -22,8 +22,8 @@ async def check_founds(id: int, db: Session = Depends(get_db)):
     return Money(**money_simplified)
 
 
-@router.get("/getFoundsInCurrency/{id}/{currency_type}", response_model=Money)
-async def get_founds_simplified_to_currency_type(id: int, currency_type: str, db: Session = Depends(get_db)):
+@router.get("/getfundsInCurrency/{id}/{currency_type}", response_model=Money)
+async def get_funds_simplified_to_currency_type(id: int, currency_type: str, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
     check_currency_type(currency_type)
 
@@ -58,7 +58,7 @@ async def transfer_money(remitter_id: int, amount: Money, beneficiary_id: int, d
     await check_character_id_exists(db, beneficiary_id)
 
     copper_amount = convert_to_copper(amount)
-    check_character_has_founds(db, remitter_id, copper_amount)
+    check_character_has_funds(db, remitter_id, copper_amount)
     subtract_money(db, remitter_id, copper_amount)
     add_money(db, beneficiary_id, copper_amount)
     return {"message": "Transfer completed"}

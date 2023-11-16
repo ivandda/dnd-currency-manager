@@ -19,7 +19,7 @@ async def character_transfers_to_party(character_id: int, party_id: int, amount:
     check_party_id_exists(db, party_id)
 
     copper_amount = convert_to_copper(amount)
-    check_character_has_founds(db, character_id, copper_amount)
+    check_character_has_funds(db, character_id, copper_amount)
 
     subtract_money(db, character_id, copper_amount)
     add_money_to_characters_in_party(db, copper_amount, party_id)
@@ -34,7 +34,7 @@ async def party_transfers_to_character(party_id: int, character_id: int, amount:
 
     copper_amount = convert_to_copper(amount)
     characters = get_all_characters_in_party(db, party_id)
-    check_founds_for_characters(db, copper_amount, characters)
+    check_funds_for_characters(db, copper_amount, characters)
 
     subtract_money_from_characters_in_party(db, copper_amount, party_id)
     add_money(db, character_id, copper_amount)
@@ -49,7 +49,7 @@ async def party_transfers_to_party(party_id_from: int, party_id_to: int, amount:
 
     copper_amount = convert_to_copper(amount)
     characters = get_all_characters_in_party(db, party_id_from)
-    check_founds_for_characters(db, copper_amount, characters)
+    check_funds_for_characters(db, copper_amount, characters)
 
     subtract_money_from_characters_in_party(db, copper_amount, party_id_from)
     add_money_to_characters_in_party(db, copper_amount, party_id_to)
