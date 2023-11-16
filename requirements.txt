@@ -1,6 +1,5 @@
-fastapi[all]
+fastapi[all]~=0.101.0
 SQLAlchemy~=2.0.21
 starlette~=0.27.0
 pydantic~=2.1.1
-psycopg2-binary~=2.8.6
-uvicorn
+python-dotenv~=1.0.0
