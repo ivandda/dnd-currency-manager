@@ -48,9 +48,11 @@ async def get_characters_in_party(id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=party.PartyResponse, status_code=status.HTTP_201_CREATED)
 async def create_party(party: party.PartyCreate, db: Session = Depends(get_db)):
     new_party = models.Parties(**party.model_dump())
-    if not (re.match("^[a-zA-Z0-9_.-]+$", new_party.name)):
+    if not (re.match("^(?=.*[^0-9])[a-zA-Z0-9_.'&-]{4,}$", new_party.name)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Invalid party name, valid characters: a-z, A-Z, 0-9, _ , . , -")
+                            detail="Invalid character name. Valid characters: a-z, A-Z, 0-9, _ , . , -, &,'. Contains "
+                                   "at least one character that is not a number. Has a minimum length of four "
+                                   "characters")
 
     check_party_name_exists(new_party.name, db)
 

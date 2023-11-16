@@ -19,12 +19,13 @@ router = APIRouter(
 
 @router.post("/", response_model=characters.CharacterResponse, status_code=status.HTTP_201_CREATED)
 async def create_character(character: characters.CharacterCreate, db: Session = Depends(get_db)):
-    # new_character = models.Characters(**character.model_dump())
     character_name = character.name
 
-    if not (re.match("^[a-zA-Z0-9_.-]+$", character_name)):
+    if not (re.match("^(?=.*[^0-9])[a-zA-Z0-9_.'&-]{4,}$", character_name)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Invalid character name. Valid characters: a-z, A-Z, 0-9, _ , . , -")
+                            detail="Invalid character name. Valid characters: a-z, A-Z, 0-9, _ , . , -, &,'. Contains "
+                                   "at least one character that is not a number. Has a minimum length of four "
+                                   "characters")
 
     await check_character_name_exists(character_name, db)
 
