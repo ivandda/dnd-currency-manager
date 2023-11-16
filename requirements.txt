@@ -1,4 +1,4 @@
-fastapi~=0.101.0
+fastapi[all]
 SQLAlchemy~=2.0.21
 starlette~=0.27.0
 pydantic~=2.1.1
