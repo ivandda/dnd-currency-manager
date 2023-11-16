@@ -1,7 +1,6 @@
 ### dnd-currency-manager
 
-- Run localy  (http://127.0.0.1:8080/home)
+- Run locally  (http://127.0.0.1:8080/home)
 ```
-sudo docker-compose up -d
-
+sudo docker-compose up --build -d
 ```
