@@ -1,9 +1,18 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
+
+
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+# SQLALCHEMY_DATABASE_URL = ("postgresql://" + os.getenv("POSTGRES_USER") + ":"
+#                            + os.getenv("POSTGRES_PASSWORD") + "@db:5432/"
+#                            + os.getenv("POSTGRES_DB"))
 # local DB
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:admin@localhost/fastAPIwallet"
+# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:admin@localhost/fastAPIwallet"
 
 # docker db
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:postgres@db:5432/postgres"

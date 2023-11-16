@@ -9,13 +9,11 @@ services:
   db:
     container_name: db
     image: postgres:12.0-alpine
-    environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+    env_file:
+      - .env
     restart: always
     ports:
-      - "5433:5432"
+      - "5432:5432"
     networks:
       - network
 
@@ -28,10 +26,8 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8080
     ports:
       - "8080:8080"
-    environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+    env_file:
+      - .env
     depends_on:
       - db
     #    restart: always
