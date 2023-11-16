@@ -3,3 +3,4 @@ SQLAlchemy~=2.0.21
 starlette~=0.27.0
 pydantic~=2.1.1
 python-dotenv~=1.0.0
+psycopg2-binary~=2.9.1
