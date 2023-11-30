@@ -48,16 +48,7 @@ async def get_characters(db: Session = Depends(get_db)):
     return get_all_characters(db)
 
 
-@router.get("/{id}", response_model=characters.CharacterResponse, status_code=status.HTTP_200_OK)
-async def get_one_character(id: int, db: Session = Depends(get_db)):
-    await check_character_id_exists(db, id)
-    character = get_character_by_id(db, id)
-
-    return character
-
-
-@router.get("/all-info/{id}", response_model=characters.CharacterAllInfoResponse, status_code=status.HTTP_200_OK)
+@router.get("/{id}", response_model=characters.CharacterAllInfoResponse, status_code=status.HTTP_200_OK)
 async def all_character_info(id: int, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
     return get_all_character_info(db, id)
-
