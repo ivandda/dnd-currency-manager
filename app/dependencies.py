@@ -18,6 +18,10 @@ tags_metadata = [
         "description": "Operations with characters.",
     },
     {
+        "name": "parties",
+        "description": "Operations with parties",
+    },
+    {
         "name": "character transactions",
         "description": "Transaction between characters and currency info.",
     },
