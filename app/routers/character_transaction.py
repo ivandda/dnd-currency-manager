@@ -1,11 +1,11 @@
-from fastapi import Depends, APIRouter
+from fastapi import Depends, APIRouter, Query
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_db
 from app.schemas.money import Money
 from app.utils.checks import *
 from app.utils.currency import *
-from app.utils.currency_convertions import converto_to_type, convert_to_copper
+from app.utils.currency_convertions import convert_to_copper, convert_to_type
 
 router = APIRouter(
     prefix="/character-transaction",
@@ -13,7 +13,7 @@ router = APIRouter(
 )
 
 
-@router.get("/getfunds/{id}", response_model=Money)
+@router.get("/{id}/funds", response_model=Money)
 async def check_funds(id: int, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
 
@@ -22,17 +22,17 @@ async def check_funds(id: int, db: Session = Depends(get_db)):
     return Money(**money_simplified)
 
 
-@router.get("/getfundsInCurrency/{id}/{currency_type}", response_model=Money)
-async def get_funds_simplified_to_currency_type(id: int, currency_type: str, db: Session = Depends(get_db)):
+@router.get("/{id}/funds-by-currency-type", response_model=Money)
+async def get_funds_simplified_to_currency_type(id: int, currency_type: str = Query(...),
+                                                db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
     check_currency_type(currency_type)
-
     money_in_copper = get_money_in_character_wallet(db, id)
-    money_simplified_to_curr_type = converto_to_type(money_in_copper, currency_type)
+    money_simplified_to_curr_type = convert_to_type(money_in_copper, currency_type)
     return Money(**money_simplified_to_curr_type)
 
 
-@router.put("/sum/{id}/", status_code=status.HTTP_200_OK)
+@router.put("/{id}/sum/", status_code=status.HTTP_200_OK)
 async def sum_money_to_character(id: int, amount: Money, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
 
@@ -42,7 +42,7 @@ async def sum_money_to_character(id: int, amount: Money, db: Session = Depends(g
                        + " (with id " + str(id) + ") has received " + str(amount)}
 
 
-@router.put("/subtract/{id}/", status_code=status.HTTP_200_OK)
+@router.put("/{id}/subtract", status_code=status.HTTP_200_OK)
 async def subtract_money_to_character(id: int, amount: Money, db: Session = Depends(get_db)):
     await check_character_id_exists(db, id)
 

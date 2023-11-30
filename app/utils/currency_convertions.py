@@ -17,7 +17,7 @@ def convert_to_simplified(copper: int) -> dict:
     return converted
 
 
-def converto_to_type(copper: int, curr_type: str) -> dict:
+def convert_to_type(copper: int, curr_type: str) -> dict:
     total_curr_type = copper // values[curr_type]
     reminder_copper = copper - total_curr_type * values[curr_type]
 
