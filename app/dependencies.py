@@ -15,25 +15,24 @@ def get_db():
 tags_metadata = [
     {
         "name": "characters",
-        "description": "Operations with characters.",
+        "description": "Characters: create and get info",
     },
     {
         "name": "parties",
-        "description": "Operations with parties",
+        "description": "Parties: create, get info, add characters",
     },
     {
-        "name": "character transactions",
-        "description": "Transaction between characters and currency info.",
-    },
-
-    {
-        "name": "party transactions",
-        "description": "Transaction between parties and currency info.",
+        "name": "money dm",
+        "description": "Money operations only a DM can do",
     },
     {
-        "name": "home",
-        "description": "Home page.",
+        "name": "money characters",
+        "description": "Money operations characters can do",
     },
+    {
+        "name": "money parties",
+        "description": "Money operations only party leader con do",
+    }
 ]
 
 # more swagger_ui_parameters :https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/

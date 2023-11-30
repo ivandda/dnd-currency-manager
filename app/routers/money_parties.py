@@ -8,8 +8,8 @@ from app.utils.currency import *
 from app.utils.currency_convertions import convert_to_copper
 
 router = APIRouter(
-    prefix="/party-transaction",
-    tags=["party transactions"]
+    prefix="/money/parties",
+    tags=["money parties"]
 )
 
 
