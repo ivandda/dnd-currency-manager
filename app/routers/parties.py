@@ -11,8 +11,8 @@ from app.utils.currency import *
 from app.utils.getters import *
 
 router = APIRouter(
-    prefix="/party",
-    tags=["party"]
+    prefix="/parties",
+    tags=["parties"]
 )
 
 

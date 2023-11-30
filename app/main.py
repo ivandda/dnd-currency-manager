@@ -4,7 +4,7 @@ from starlette.responses import RedirectResponse
 from app.database.database import engine
 from app.dependencies import tags_metadata, swagger_ui_parameters
 from app.models import models
-from app.routers import home, characters, party, character_transaction, party_transaction
+from app.routers import home, characters, parties, character_transaction, party_transaction
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -24,6 +24,6 @@ async def redirect_to_home_page():
 
 app.include_router(home.router)
 app.include_router(characters.router)
-app.include_router(party.router)
+app.include_router(parties.router)
 app.include_router(character_transaction.router)
 app.include_router(party_transaction.router)
