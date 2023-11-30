@@ -25,3 +25,7 @@ class CharacterAllInfoResponse(BaseModel):
     wallet: dict
     parties: List[PartyResponse]
     created_at: datetime
+
+
+class CharacterIdLists(BaseModel):
+    ids: List[int]
