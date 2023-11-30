@@ -17,6 +17,7 @@ router = APIRouter(
 async def character_transfers_to_party(character_id: int, party_id: int, amount: Money, db: Session = Depends(get_db)):
     await check_character_id_exists(db, character_id)
     check_party_id_exists(db, party_id)
+    check_party_has_characters(db, party_id)
 
     copper_amount = convert_to_copper(amount)
     check_character_has_funds(db, character_id, copper_amount)
@@ -31,6 +32,7 @@ async def character_transfers_to_party(character_id: int, party_id: int, amount:
 async def party_transfers_to_character(party_id: int, character_id: int, amount: Money, db: Session = Depends(get_db)):
     await check_character_id_exists(db, character_id)
     check_party_id_exists(db, party_id)
+    check_party_has_characters(db, party_id)
 
     copper_amount = convert_to_copper(amount)
     characters = get_all_characters_in_party(db, party_id)
@@ -42,10 +44,11 @@ async def party_transfers_to_character(party_id: int, character_id: int, amount:
     return {"message": "Transactions successful"}
 
 
-@router.put("party_transfers_party/{party_id_from}/{party_id_to}", status_code=status.HTTP_200_OK)
+@router.put("/party_transfers_party/{party_id_from}/{party_id_to}", status_code=status.HTTP_200_OK)
 async def party_transfers_to_party(party_id_from: int, party_id_to: int, amount: Money, db: Session = Depends(get_db)):
     check_party_id_exists(db, party_id_from)
     check_party_id_exists(db, party_id_to)
+    check_party_has_characters(db, party_id_from)
 
     copper_amount = convert_to_copper(amount)
     characters = get_all_characters_in_party(db, party_id_from)

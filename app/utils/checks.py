@@ -35,6 +35,12 @@ def check_character_is_in_party(db, party_id, character_id):
                             detail="Character is already in party")
 
 
+def check_party_has_characters(db, party_id):
+    if len(get_all_characters_id_in_party(db, party_id)) == 0:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="Party " + str(party_id) + " has no characters")
+
+
 def check_wallet_id_exists(db, id):
     if id not in get_all_wallet_ids(db):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
