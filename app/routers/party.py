@@ -55,7 +55,7 @@ async def create_party(party: party.PartyCreate, db: Session = Depends(get_db)):
     return new_party
 
 
-@router.put("/{party_id}/{character_id}", response_model=party.PartyResponse)
+@router.put("/{party_id}/add-character/{character_id}", response_model=party.PartyResponse)
 async def add_characters_to_party(party_id: int, character_id: int, db: Session = Depends(get_db)):
     check_party_id_exists(db, party_id)
     await check_character_id_exists(db, character_id)
