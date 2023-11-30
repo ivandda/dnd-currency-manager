@@ -1,6 +1,6 @@
 from app.models import models
 from app.schemas.characters import CharacterAllInfoResponse
-from app.schemas.party import PartyAllInfoResponse, PartyResponse
+from app.schemas.parties import PartyAllInfoResponse, PartyResponse
 from app.utils.currency_convertions import convert_to_simplified
 
 

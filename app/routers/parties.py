@@ -5,7 +5,7 @@ from fastapi import Depends, APIRouter
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_db
-from app.schemas import party, characters
+from app.schemas import parties, characters
 from app.utils.checks import *
 from app.utils.currency import *
 from app.utils.getters import *
@@ -16,14 +16,14 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=List[party.PartyResponse])
+@router.get("/", response_model=List[parties.PartyResponse])
 async def get_all_parties(db: Session = Depends(get_db)):
     all_parties = db.query(models.Parties).all()
 
     return all_parties
 
 
-@router.get("{id}", response_model=party.PartyAllInfoResponse)
+@router.get("{id}", response_model=parties.PartyAllInfoResponse)
 async def get_all_party_info(id: int, db: Session = Depends(get_db)):
     check_party_id_exists(db, id)
     return get_all_info_of_party(db, id)
@@ -37,8 +37,8 @@ async def get_characters_in_party(id: int, db: Session = Depends(get_db)):
     return party.characters
 
 
-@router.post("/", response_model=party.PartyResponse, status_code=status.HTTP_201_CREATED)
-async def create_party(party: party.PartyCreate, db: Session = Depends(get_db)):
+@router.post("/", response_model=parties.PartyResponse, status_code=status.HTTP_201_CREATED)
+async def create_party(party: parties.PartyCreate, db: Session = Depends(get_db)):
     new_party = models.Parties(**party.model_dump())
     if not (re.match("^(?=.*[^0-9])[a-zA-Z0-9_.'&-]{4,}$", new_party.name)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -55,7 +55,7 @@ async def create_party(party: party.PartyCreate, db: Session = Depends(get_db)):
     return new_party
 
 
-@router.put("/{party_id}/add-character/{character_id}", response_model=party.PartyResponse)
+@router.put("/{party_id}/add-character/{character_id}", response_model=parties.PartyResponse)
 async def add_characters_to_party(party_id: int, character_id: int, db: Session = Depends(get_db)):
     check_party_id_exists(db, party_id)
     await check_character_id_exists(db, character_id)

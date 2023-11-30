@@ -3,7 +3,7 @@ from typing import List
 
 from pydantic import BaseModel
 
-from app.schemas.party import PartyResponse
+from app.schemas.parties import PartyResponse
 
 
 class CharacterCreate(BaseModel):
