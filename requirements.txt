@@ -4,3 +4,5 @@ starlette~=0.27.0
 pydantic~=2.1.1
 python-dotenv
 psycopg2-binary~=2.9.1
+python-jose[cryptography]
+passlib[bcrypt]

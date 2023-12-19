@@ -4,7 +4,7 @@ from starlette.responses import RedirectResponse
 from app.database.database import engine
 from app.dependencies import tags_metadata, swagger_ui_parameters
 from app.models import models
-from app.routers import home, characters, parties, money_parties, money_dm, money_character
+from app.routers import home, characters, parties, money_parties, money_dm, money_character, auth
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -28,3 +28,4 @@ app.include_router(parties.router)
 app.include_router(money_parties.router)
 app.include_router(money_dm.router)
 app.include_router(money_character.router)
+app.include_router(auth.router)
