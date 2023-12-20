@@ -1,18 +1,17 @@
-from fastapi import status, HTTPException, Depends
+from fastapi import status, HTTPException
 
-from app.utils.auth import get_current_user_id
 from app.utils.constants import currency_types
 from app.utils.getters import get_all_character_ids, get_all_character_names, get_all_party_ids, get_all_party_names, \
     get_all_characters_id_in_party, get_all_wallet_ids
 
 
-async def check_character_id_exists(db, id):
+def check_character_id_exists(db, id):
     if id not in get_all_character_ids(db):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail="Character with id " + str(id) + " not found")
 
 
-async def check_character_name_exists(character_name, db):
+def check_character_name_exists(character_name, db):
     if character_name in get_all_character_names(db):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="Character name already exists")
@@ -58,3 +57,9 @@ def check_user_id_is_authenticated(user_id, current_user_id):
     if user_id != current_user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="User id invalid for this operation")
+
+
+# def check_user_roll_is_DM(current_user_id, db):
+#     if not get_user_by_id(db, current_user_id).is_dm:
+#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+#                             detail="User is not DM")

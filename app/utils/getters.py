@@ -25,6 +25,10 @@ def get_character_by_id(db, character_id):
     return db.query(models.Characters).filter(models.Characters.id == character_id).first()
 
 
+def get_user_id_by_character_id(db, character_id):
+    return get_character_by_id(db, character_id).user_id
+
+
 def get_character_name(db, character_id):
     return get_character_by_id(db, character_id).name
 

@@ -17,7 +17,7 @@ router = APIRouter(
 @router.put("/sum-characters", status_code=status.HTTP_200_OK)
 async def sum_money_to_many_characters(character_ids: CharacterIdLists, amount: Money, db: Session = Depends(get_db)):
     for character_id in character_ids.ids:
-        await check_character_id_exists(db, character_id)
+        check_character_id_exists(db, character_id)
 
     copper_amount = convert_to_copper(amount)
     money_for_each_character = divide_money_evenly(copper_amount, len(character_ids.ids))
@@ -32,7 +32,7 @@ async def sum_money_to_many_characters(character_ids: CharacterIdLists, amount: 
 async def subtract_money_to_many_characters(character_ids: CharacterIdLists, amount: Money,
                                             db: Session = Depends(get_db)):
     for character_id in character_ids.ids:
-        await check_character_id_exists(db, character_id)
+        check_character_id_exists(db, character_id)
 
     copper_amount = convert_to_copper(amount)
     money_for_each_character = divide_money_evenly(copper_amount, len(character_ids.ids))

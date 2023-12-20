@@ -2,11 +2,12 @@ import re
 from http.client import HTTPException
 from typing import List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_db
 from app.schemas import characters
+from app.utils.auth import get_current_user_id
 from app.utils.checks import *
 from app.utils.currency import *
 from app.utils.getters import *
@@ -28,7 +29,7 @@ async def create_character(character: characters.CharacterCreate,
                                    "at least one character that is not a number. Has a minimum length of four "
                                    "characters")
 
-    await check_character_name_exists(character_name, db)
+    check_character_name_exists(character_name, db)
 
     new_character = models.Characters(name=character_name, user_id=user_id)
     db.add(new_character)
@@ -49,11 +50,11 @@ async def get_characters_from_user(db: Session = Depends(get_db), user_id: int =
     return get_all_characters_with_user_id(db, user_id)
 
 
-@router.get("/{id}", response_model=characters.CharacterAllInfoResponse, status_code=status.HTTP_200_OK)
-async def all_character_info(id: int,
+@router.get("/{character_id}", response_model=characters.CharacterAllInfoResponse, status_code=status.HTTP_200_OK)
+async def all_character_info(character_id: int,
                              db: Session = Depends(get_db),
                              user_id: int = Depends(get_current_user_id)):
 
-    check_user_id_is_authenticated(user_id, get_character_by_id(db, id).user_id)
-    await check_character_id_exists(db, id)
-    return get_all_character_info(db, id)
+    check_user_id_is_authenticated(user_id, get_user_id_by_character_id(db, character_id))
+    check_character_id_exists(db, character_id)
+    return get_all_character_info(db, character_id)
