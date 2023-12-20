@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.dependencies import get_db
 from app.schemas.characters import CharacterIdLists
 from app.schemas.money import Money
+from app.utils.auth import get_current_user_id
 from app.utils.checks import *
 from app.utils.currency import *
 from app.utils.currency_convertions import convert_to_copper
@@ -15,7 +16,12 @@ router = APIRouter(
 
 
 @router.put("/sum-characters", status_code=status.HTTP_200_OK)
-async def sum_money_to_many_characters(character_ids: CharacterIdLists, amount: Money, db: Session = Depends(get_db)):
+async def sum_money_to_many_characters(character_ids: CharacterIdLists,
+                                       amount: Money, db: Session = Depends(get_db),
+                                       current_user_id: int = Depends(get_current_user_id)):
+
+    check_current_user_role("DM", current_user_id, db)
+
     for character_id in character_ids.ids:
         check_character_id_exists(db, character_id)
 
@@ -29,8 +35,12 @@ async def sum_money_to_many_characters(character_ids: CharacterIdLists, amount: 
 
 
 @router.put("/subtract-characters", status_code=status.HTTP_200_OK)
-async def subtract_money_to_many_characters(character_ids: CharacterIdLists, amount: Money,
-                                            db: Session = Depends(get_db)):
+async def subtract_money_to_many_characters(character_ids: CharacterIdLists,
+                                            amount: Money,
+                                            db: Session = Depends(get_db),
+                                            current_user_id: int = Depends(get_current_user_id)):
+    check_current_user_role("DM", current_user_id, db)
+
     for character_id in character_ids.ids:
         check_character_id_exists(db, character_id)
 
@@ -45,4 +55,3 @@ async def subtract_money_to_many_characters(character_ids: CharacterIdLists, amo
         subtract_money(db, character_id, money)
 
     return {"message": "Characters with ids: " + str(character_ids.ids) + " have lost " + str(amount)}
-

@@ -1,5 +1,6 @@
 from fastapi import status, HTTPException
 
+from app.models import auth
 from app.utils.constants import currency_types
 from app.utils.getters import get_all_character_ids, get_all_character_names, get_all_party_ids, get_all_party_names, \
     get_all_characters_id_in_party, get_all_wallet_ids
@@ -59,7 +60,8 @@ def check_user_id_is_authenticated(user_id, current_user_id):
                             detail="User id invalid for this operation")
 
 
-# def check_user_roll_is_DM(current_user_id, db):
-#     if not get_user_by_id(db, current_user_id).is_dm:
-#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-#                             detail="User is not DM")
+def check_current_user_role(user_roll: str, current_user_id: int, db):
+    current_user_role = db.query(auth.User).filter(auth.User.id == current_user_id).first().role
+    if current_user_role != user_roll:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="User role invalid for this operation")

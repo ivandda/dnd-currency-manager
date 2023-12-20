@@ -81,7 +81,3 @@ async def get_current_user_id(token: Annotated[str, Depends(oauth2_scheme)]):
     user = await get_current_user(token)
     return user.id
 
-
-# def get_current_user_role(token: Annotated[str, Depends(oauth2_scheme)]):
-#     user = get_current_user(token)
-#     return user.role
