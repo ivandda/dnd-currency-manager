@@ -17,6 +17,7 @@ class Characters(Base):
     name = Column(String, unique=True, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True),
                         server_default=text("now()"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     parties = relationship("Parties", secondary="character_parties", back_populates="characters")
 

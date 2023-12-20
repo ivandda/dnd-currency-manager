@@ -8,8 +8,8 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from app.dependencies import get_db
 from app.database.database import SessionLocal
+from app.dependencies import get_db
 from app.models import auth
 from app.schemas.auth import TokenData
 
@@ -75,3 +75,8 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     if user is None:
         raise credentials_exception
     return user
+
+
+async def get_current_user_id(token: Annotated[str, Depends(oauth2_scheme)]):
+    user = await get_current_user(token)
+    return user.id

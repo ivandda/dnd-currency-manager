@@ -2,7 +2,7 @@ import re
 from http.client import HTTPException
 from typing import List
 
-from fastapi import Depends, APIRouter
+from fastapi import APIRouter
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_db
@@ -18,7 +18,8 @@ router = APIRouter(
 
 
 @router.post("/", response_model=characters.CharacterResponse, status_code=status.HTTP_201_CREATED)
-async def create_character(character: characters.CharacterCreate, db: Session = Depends(get_db)):
+async def create_character(character: characters.CharacterCreate,
+                           db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
     character_name = character.name
 
     if not (re.match("^(?=.*[^0-9])[a-zA-Z0-9_.'&-]{4,}$", character_name)):
@@ -29,26 +30,30 @@ async def create_character(character: characters.CharacterCreate, db: Session = 
 
     await check_character_name_exists(character_name, db)
 
-    new_character = models.Characters(name=character_name)
+    new_character = models.Characters(name=character_name, user_id=user_id)
     db.add(new_character)
     db.commit()
     db.refresh(new_character)
 
     # Add new wallet to character
-    characterWallet = models.Wallet(character_owner_id=new_character.id)
-    db.add(characterWallet)
+    character_wallet = models.Wallet(character_owner_id=new_character.id)
+    db.add(character_wallet)
     db.commit()
-    db.refresh(characterWallet)
+    db.refresh(character_wallet)
 
     return new_character
 
 
 @router.get("/", response_model=List[characters.CharacterResponse], status_code=status.HTTP_200_OK)
-async def get_characters(db: Session = Depends(get_db)):
-    return get_all_characters(db)
+async def get_characters_from_user(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    return get_all_characters_with_user_id(db, user_id)
 
 
 @router.get("/{id}", response_model=characters.CharacterAllInfoResponse, status_code=status.HTTP_200_OK)
-async def all_character_info(id: int, db: Session = Depends(get_db)):
+async def all_character_info(id: int,
+                             db: Session = Depends(get_db),
+                             user_id: int = Depends(get_current_user_id)):
+
+    check_user_id_is_authenticated(user_id, get_character_by_id(db, id).user_id)
     await check_character_id_exists(db, id)
     return get_all_character_info(db, id)

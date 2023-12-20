@@ -9,6 +9,10 @@ def get_all_characters(db):
     return db.query(models.Characters).all()
 
 
+def get_all_characters_with_user_id(db, user_id):
+    return db.query(models.Characters).filter(models.Characters.user_id == user_id).all()
+
+
 def get_all_character_names(db):
     return [character.name for character in get_all_characters(db)]
 
@@ -39,6 +43,7 @@ def get_all_character_info(db, character_id) -> CharacterAllInfoResponse:
                                     , wallet=character_money_simplified
                                     , parties=all_character_parties
                                     , created_at=character.created_at)
+
 
 #
 #
