@@ -54,7 +54,6 @@ async def get_characters_from_user(db: Session = Depends(get_db), user_id: int =
 async def all_character_info(character_id: int,
                              db: Session = Depends(get_db),
                              user_id: int = Depends(get_current_user_id)):
-
-    check_user_id_is_authenticated(user_id, get_user_id_by_character_id(db, character_id))
     check_character_id_exists(db, character_id)
+    check_user_id_is_authenticated(user_id, get_user_id_by_character_id(db, character_id))
     return get_all_character_info(db, character_id)
