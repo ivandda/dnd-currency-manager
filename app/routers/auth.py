@@ -7,11 +7,10 @@ from fastapi import APIRouter
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-
 from app.database.database import SessionLocal
 from app.dependencies import get_db
 from app.models import auth
-from app.schemas.auth import Token, CreateUser, User
+from app.schemas.auth_schemas import Token, CreateUser, User
 from app.utils.auth import authenticate_user, create_access_token, get_password_hash, get_current_user
 
 router = APIRouter(
@@ -54,7 +53,7 @@ async def create_user(user: CreateUser, db: SessionLocal = Depends(get_db)):
     db_user = auth.User(username=user.username,
                         email=user.email,
                         hashed_password=get_password_hash(user.password),
-                        role=user.role)
+                        disabled=False)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)

@@ -5,10 +5,12 @@ from fastapi import Depends, APIRouter
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_db
-from app.schemas import parties, characters
+from app.schemas import parties, characters, auth_schemas
+from app.utils.auth import get_current_user_id
 from app.utils.checks import *
 from app.utils.currency import *
 from app.utils.getters import *
+from app.models import auth, models
 
 router = APIRouter(
     prefix="/parties",
@@ -69,3 +71,24 @@ async def add_characters_to_party(party_id: UUID, character_id: UUID, db: Sessio
     db.commit()
 
     return party
+
+
+@router.post("/{party_id}/assign-dm/", response_model=parties.PartyResponse)
+async def assign_dm(party_id: UUID, user_id: UUID = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    check_party_id_exists(db, party_id)
+    check_character_is_in_party(db, party_id, user_id)
+
+    party = get_party_by_id(db, party_id)
+    user = get_user_by_id(db, user_id)
+
+    party.users.append(user)
+
+    db.commit()
+    return get_party_by_id(db, party_id)
+
+
+@router.get("/{party_id}/get-dm/", response_model=List[auth_schemas.UserResponse])
+async def get_dm(party_id: UUID, db: Session = Depends(get_db)):
+    check_party_id_exists(db, party_id)
+    dms = get_dms_of_party(db, party_id)
+    return [dm for dm in dms]

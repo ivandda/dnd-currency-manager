@@ -11,7 +11,7 @@ from passlib.context import CryptContext
 from app.database.database import SessionLocal
 from app.dependencies import get_db
 from app.models import auth
-from app.schemas.auth import TokenData
+from app.schemas.auth_schemas import TokenData
 
 load_dotenv()
 

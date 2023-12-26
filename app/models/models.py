@@ -35,6 +35,7 @@ class Parties(Base):
                         server_default=text("now()"), nullable=False)
 
     characters = relationship("Characters", secondary="character_parties", back_populates="parties")
+    users = relationship("User", secondary="dm_parties", back_populates="parties")
 
 
 class Wallet(Base):

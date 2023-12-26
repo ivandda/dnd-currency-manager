@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from app.models import models
+from app.models import models, auth
 from app.schemas.characters import CharacterAllInfoResponse
 from app.schemas.parties import PartyAllInfoResponse, PartyResponse
 from app.utils.currency_convertions import convert_to_simplified
@@ -134,3 +134,13 @@ def get_all_info_of_party(db, party_id) -> PartyAllInfoResponse:
                                 name=party.name,
                                 characters=all_characters_in_party,
                                 created_at=party.created_at)
+
+
+def get_dms_of_party(db, party_id):
+    return db.query(auth.User).join(auth.dm_parties).filter(auth.dm_parties.c.party_id == party_id).all()
+
+
+# Users---------------------------------------------------:
+
+def get_user_by_id(db, user_id):
+    return db.query(auth.User).filter(auth.User.id == user_id).first()
