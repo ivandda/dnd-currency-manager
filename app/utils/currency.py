@@ -12,7 +12,7 @@ from app.utils.getters import get_wallet_with_character_id, get_money_in_charact
 
 def add_money(db, id: UUID, amount: int):
     wallet = get_wallet_with_character_id(db, id)
-    wallet.money += amount
+    wallet.money_copper += amount
     db.commit()
     db.refresh(wallet)
     return wallet
@@ -21,7 +21,7 @@ def add_money(db, id: UUID, amount: int):
 def subtract_money(db, id, amount):
     if check_character_has_funds(db, id, amount):
         wallet = get_wallet_with_character_id(db, id)
-        wallet.money -= amount
+        wallet.money_copper -= amount
         db.commit()
         db.refresh(wallet)
         return wallet

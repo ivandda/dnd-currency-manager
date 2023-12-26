@@ -70,12 +70,12 @@ def get_wallet_by_id(db, wallet_id):
 
 
 def get_wallet_with_character_id(db, character_id):
-    return db.query(models.Wallet).filter(models.Wallet.character_owner_id == character_id).first()
+    return db.query(models.Wallet).filter(models.Wallet.character_id == character_id).first()
 
 
 def get_money_in_wallet(db, wallet_id):
     wallet = get_wallet_by_id(db, wallet_id)
-    return wallet.money
+    return wallet.money_copper
 
 
 def get_money_in_character_wallet(db, character_id: UUID) -> int:
