@@ -12,7 +12,6 @@ class CharacterCreate(BaseModel):
 
 
 class CharacterResponse(BaseModel):
-    # id: int
     id: UUID
     name: str
     created_at: datetime
@@ -22,7 +21,6 @@ class CharacterResponse(BaseModel):
 
 
 class CharacterAllInfoResponse(BaseModel):
-    # id: int
     id: UUID
     name: str
     wallet: dict
@@ -31,5 +29,4 @@ class CharacterAllInfoResponse(BaseModel):
 
 
 class CharacterIdLists(BaseModel):
-    # ids: List[int]
     ids: List[UUID]

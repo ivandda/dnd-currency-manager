@@ -10,7 +10,6 @@ class WalletBase(BaseModel):
 
 
 class WalletResponse(BaseModel):
-    # id: int
     id: UUID
     money: int
     created_at: datetime
