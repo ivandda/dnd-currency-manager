@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import HTTPException, status
 
 from app.utils.currency_convertions import convert_to_simplified
@@ -8,7 +10,7 @@ from app.utils.getters import get_wallet_with_character_id, get_money_in_charact
 # services
 
 
-def add_money(db, id: int, amount: int):
+def add_money(db, id: UUID, amount: int):
     wallet = get_wallet_with_character_id(db, id)
     wallet.money += amount
     db.commit()
@@ -48,7 +50,7 @@ def add_money_to_characters(db, total_money: int, characters: list):
         add_money(db, character.id, money)
 
 
-def add_money_to_characters_in_party(db, total_money: int, party_id: int):
+def add_money_to_characters_in_party(db, total_money: int, party_id: UUID):
     characters = get_all_characters_in_party(db, party_id)
     add_money_to_characters(db, total_money, characters)
 
@@ -60,12 +62,12 @@ def subtract_money_from_characters(db, total_money: int, characters: list):
         subtract_money(db, character.id, money)
 
 
-def subtract_money_from_characters_in_party(db, total_money: int, party_id: int):
+def subtract_money_from_characters_in_party(db, total_money: int, party_id: UUID):
     characters = get_all_characters_in_party(db, party_id)
     subtract_money_from_characters(db, total_money, characters)
 
 
-def check_character_has_funds(db, character_id: int, amount: int) -> bool:
+def check_character_has_funds(db, character_id: UUID, amount: int) -> bool:
     character_money = get_money_in_character_wallet(db, character_id)
 
     if character_money < amount:

@@ -1,6 +1,7 @@
 import re
 from http.client import HTTPException
 from typing import List
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -46,12 +47,12 @@ async def create_character(character: characters.CharacterCreate,
 
 
 @router.get("/", response_model=List[characters.CharacterResponse], status_code=status.HTTP_200_OK)
-async def get_characters_from_user(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+async def get_characters_from_user(db: Session = Depends(get_db), user_id: UUID = Depends(get_current_user_id)):
     return get_all_characters_with_user_id(db, user_id)
 
 
 @router.get("/{character_id}", response_model=characters.CharacterAllInfoResponse, status_code=status.HTTP_200_OK)
-async def all_character_info(character_id: int,
+async def all_character_info(character_id: UUID,
                              db: Session = Depends(get_db),
                              user_id: int = Depends(get_current_user_id)):
     check_character_id_exists(db, character_id)

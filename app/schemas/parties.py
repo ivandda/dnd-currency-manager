@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -8,7 +9,8 @@ class PartyCreate(BaseModel):
 
 
 class PartyResponse(BaseModel):
-    id: int
+    # id: int
+    id: UUID
     name: str
     created_at: datetime
 
@@ -17,7 +19,8 @@ class PartyResponse(BaseModel):
 
 
 class PartyAllInfoResponse(BaseModel):
-    id: int
+    # id: int
+    id: UUID
     name: str
     characters: list
     created_at: datetime

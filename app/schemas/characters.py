@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import List
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -11,7 +12,8 @@ class CharacterCreate(BaseModel):
 
 
 class CharacterResponse(BaseModel):
-    id: int
+    # id: int
+    id: UUID
     name: str
     created_at: datetime
 
@@ -20,7 +22,8 @@ class CharacterResponse(BaseModel):
 
 
 class CharacterAllInfoResponse(BaseModel):
-    id: int
+    # id: int
+    id: UUID
     name: str
     wallet: dict
     parties: List[PartyResponse]
@@ -28,4 +31,5 @@ class CharacterAllInfoResponse(BaseModel):
 
 
 class CharacterIdLists(BaseModel):
-    ids: List[int]
+    # ids: List[int]
+    ids: List[UUID]

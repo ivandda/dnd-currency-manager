@@ -14,7 +14,8 @@ router = APIRouter(
 
 
 @router.put("/character_transfers_party/{character_id}/{party_id}", status_code=status.HTTP_200_OK)
-async def character_transfers_to_party(character_id: int, party_id: int, amount: Money, db: Session = Depends(get_db)):
+async def character_transfers_to_party(character_id: UUID, party_id: UUID, amount: Money,
+                                       db: Session = Depends(get_db)):
     check_character_id_exists(db, character_id)
     check_party_id_exists(db, party_id)
     check_party_has_characters(db, party_id)
@@ -29,7 +30,8 @@ async def character_transfers_to_party(character_id: int, party_id: int, amount:
 
 
 @router.put("/party_transfers_character/{party_id}/{character_id}", status_code=status.HTTP_200_OK)
-async def party_transfers_to_character(party_id: int, character_id: int, amount: Money, db: Session = Depends(get_db)):
+async def party_transfers_to_character(party_id: UUID, character_id: UUID, amount: Money,
+                                       db: Session = Depends(get_db)):
     check_character_id_exists(db, character_id)
     check_party_id_exists(db, party_id)
     check_party_has_characters(db, party_id)
@@ -45,7 +47,8 @@ async def party_transfers_to_character(party_id: int, character_id: int, amount:
 
 
 @router.put("/party_transfers_party/{party_id_from}/{party_id_to}", status_code=status.HTTP_200_OK)
-async def party_transfers_to_party(party_id_from: int, party_id_to: int, amount: Money, db: Session = Depends(get_db)):
+async def party_transfers_to_party(party_id_from: UUID, party_id_to: UUID, amount: Money,
+                                   db: Session = Depends(get_db)):
     check_party_id_exists(db, party_id_from)
     check_party_id_exists(db, party_id_to)
     check_party_has_characters(db, party_id_from)

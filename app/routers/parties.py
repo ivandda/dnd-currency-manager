@@ -24,13 +24,13 @@ async def get_all_parties(db: Session = Depends(get_db)):
 
 
 @router.get("{id}", response_model=parties.PartyAllInfoResponse)
-async def get_all_party_info(id: int, db: Session = Depends(get_db)):
+async def get_all_party_info(id: UUID, db: Session = Depends(get_db)):
     check_party_id_exists(db, id)
     return get_all_info_of_party(db, id)
 
 
 @router.get("/{id}/characters", response_model=List[characters.CharacterResponse])
-async def get_characters_in_party(id: int, db: Session = Depends(get_db)):
+async def get_characters_in_party(id: UUID, db: Session = Depends(get_db)):
     check_party_id_exists(db, id)
     party = get_party_by_id(db, id)
 
@@ -56,7 +56,7 @@ async def create_party(party: parties.PartyCreate, db: Session = Depends(get_db)
 
 
 @router.put("/{party_id}/add-character/{character_id}", response_model=parties.PartyResponse)
-async def add_characters_to_party(party_id: int, character_id: int, db: Session = Depends(get_db)):
+async def add_characters_to_party(party_id: UUID, character_id: UUID, db: Session = Depends(get_db)):
     check_party_id_exists(db, party_id)
     check_character_id_exists(db, character_id)
 

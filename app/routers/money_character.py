@@ -16,8 +16,8 @@ router = APIRouter(
 
 
 @router.get("/{id}/funds", response_model=Money)
-async def check_funds(id: int, db: Session = Depends(get_db),
-                      user_id: int = Depends(get_current_user_id)):
+async def check_funds(id: UUID, db: Session = Depends(get_db),
+                      user_id: UUID = Depends(get_current_user_id)):
     check_character_id_exists(db, id)
     check_user_id_is_authenticated(user_id, get_user_id_by_character_id(db, id))
 
@@ -27,9 +27,9 @@ async def check_funds(id: int, db: Session = Depends(get_db),
 
 
 @router.get("/{id}/funds-by-currency-type", response_model=Money)
-async def get_funds_simplified_to_currency_type(id: int, currency_type: str = Query(...),
+async def get_funds_simplified_to_currency_type(id: UUID, currency_type: str = Query(...),
                                                 db: Session = Depends(get_db),
-                                                user_id: int = Depends(get_current_user_id)):
+                                                user_id: UUID = Depends(get_current_user_id)):
     check_character_id_exists(db, id)
     check_user_id_is_authenticated(user_id, get_user_id_by_character_id(db, id))
     check_currency_type(currency_type)
@@ -39,8 +39,8 @@ async def get_funds_simplified_to_currency_type(id: int, currency_type: str = Qu
 
 
 @router.put("/transfer/{remitter_id}/{beneficiary_id}", status_code=status.HTTP_200_OK)
-async def transfer_money(remitter_id: int, amount: Money, beneficiary_id: int,
-                         db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+async def transfer_money(remitter_id: UUID, amount: Money, beneficiary_id: UUID,
+                         db: Session = Depends(get_db), user_id: UUID = Depends(get_current_user_id)):
     check_character_id_exists(db, remitter_id)
     check_character_id_exists(db, beneficiary_id)
     check_user_id_is_authenticated(user_id, get_user_id_by_character_id(db, remitter_id))

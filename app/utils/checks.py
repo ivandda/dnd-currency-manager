@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import status, HTTPException
 
 from app.models import auth
@@ -6,7 +8,7 @@ from app.utils.getters import get_all_character_ids, get_all_character_names, ge
     get_all_characters_id_in_party, get_all_wallet_ids
 
 
-def check_character_id_exists(db, id):
+def check_character_id_exists(db, id: UUID):
     if id not in get_all_character_ids(db):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail="Character with id " + str(id) + " not found")
@@ -18,7 +20,7 @@ def check_character_name_exists(character_name, db):
                             detail="Character name already exists")
 
 
-def check_party_id_exists(db, id):
+def check_party_id_exists(db, id: UUID):
     if id not in get_all_party_ids(db):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail="Party does not exist")
@@ -42,7 +44,7 @@ def check_party_has_characters(db, party_id):
                             detail="Party " + str(party_id) + " has no characters")
 
 
-def check_wallet_id_exists(db, id):
+def check_wallet_id_exists(db, id: UUID):
     if id not in get_all_wallet_ids(db):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail="Wallet does not exist")
@@ -60,7 +62,7 @@ def check_user_id_is_authenticated(user_id, current_user_id):
                             detail="User id invalid for this operation")
 
 
-def check_current_user_role(user_roll: str, current_user_id: int, db):
+def check_current_user_role(user_roll: str, current_user_id: UUID, db):
     current_user_role = db.query(auth.User).filter(auth.User.id == current_user_id).first().role
     if current_user_role != user_roll:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,

@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -9,7 +10,8 @@ class WalletBase(BaseModel):
 
 
 class WalletResponse(BaseModel):
-    id: int
+    # id: int
+    id: UUID
     money: int
     created_at: datetime
     character_owner_id: int

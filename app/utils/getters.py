@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from app.models import models
 from app.schemas.characters import CharacterAllInfoResponse
 from app.schemas.parties import PartyAllInfoResponse, PartyResponse
@@ -76,7 +78,7 @@ def get_money_in_wallet(db, wallet_id):
     return wallet.money
 
 
-def get_money_in_character_wallet(db, character_id: int) -> int:
+def get_money_in_character_wallet(db, character_id: UUID) -> int:
     character_wallet = get_wallet_with_character_id(db, character_id)
     character_money = get_money_in_wallet(db, character_wallet.id)
 

@@ -18,7 +18,7 @@ router = APIRouter(
 @router.put("/sum-characters", status_code=status.HTTP_200_OK)
 async def sum_money_to_many_characters(character_ids: CharacterIdLists,
                                        amount: Money, db: Session = Depends(get_db),
-                                       current_user_id: int = Depends(get_current_user_id)):
+                                       current_user_id: UUID = Depends(get_current_user_id)):
 
     check_current_user_role("DM", current_user_id, db)
 
@@ -38,7 +38,7 @@ async def sum_money_to_many_characters(character_ids: CharacterIdLists,
 async def subtract_money_to_many_characters(character_ids: CharacterIdLists,
                                             amount: Money,
                                             db: Session = Depends(get_db),
-                                            current_user_id: int = Depends(get_current_user_id)):
+                                            current_user_id: UUID = Depends(get_current_user_id)):
     check_current_user_role("DM", current_user_id, db)
 
     for character_id in character_ids.ids:
