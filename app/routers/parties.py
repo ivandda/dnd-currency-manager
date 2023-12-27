@@ -16,26 +16,6 @@ router = APIRouter(
 )
 
 
-@router.get("/all-ids", response_model=List[parties.PartyResponse])
-async def get_all_parties_ids_names_and_created_date(db: Session = Depends(get_db)):
-    all_parties = db.query(domain.Parties).all()
-
-    return all_parties
-
-
-@router.get("/all-info", response_model=List[parties.PartyAllInfoResponse])
-async def get_all_info_of_all_parties(db: Session = Depends(get_db)):
-    all_parties = db.query(domain.Parties).all()
-    all_parties_info = [get_all_info_of_party(db, party.id) for party in all_parties]
-    return all_parties_info
-
-
-@router.get("/{id}", response_model=parties.PartyAllInfoResponse)
-async def get_all_info_of_one_party(id: UUID, db: Session = Depends(get_db)):
-    check_party_id_exists(db, id)
-    return get_all_info_of_party(db, id)
-
-
 @router.post("/", response_model=parties.PartyResponse, status_code=status.HTTP_201_CREATED)
 async def create_party(party: parties.PartyCreate, db: Session = Depends(get_db)):
     new_party = domain.Parties(**party.model_dump())
@@ -65,7 +45,7 @@ async def add_character_to_party(party_id: UUID, character_id: UUID, db: Session
     return party
 
 
-@router.post("/{party_id}/assign-dm/", response_model=parties.PartyResponse)
+@router.put("/{party_id}/assign-dm/", response_model=parties.PartyResponse)
 async def assign_dm(party_id: UUID, user_id: UUID = Depends(get_current_user_id), db: Session = Depends(get_db)):
     check_party_id_exists(db, party_id)
     check_character_is_in_party(db, party_id, user_id)
@@ -79,8 +59,28 @@ async def assign_dm(party_id: UUID, user_id: UUID = Depends(get_current_user_id)
     return get_party_by_id(db, party_id)
 
 
-@router.get("/{party_id}/get-dm/", response_model=List[auth_schemas.UserResponse])
-async def get_dm(party_id: UUID, db: Session = Depends(get_db)):
+@router.get("/info/basic", response_model=List[parties.PartyResponse])
+async def get_all_parties_ids_names_and_created_date(db: Session = Depends(get_db)):
+    all_parties = db.query(domain.Parties).all()
+
+    return all_parties
+
+
+@router.get("/info/all", response_model=List[parties.PartyAllInfoResponse])
+async def get_all_info_of_all_parties(db: Session = Depends(get_db)):
+    all_parties = db.query(domain.Parties).all()
+    all_parties_info = [get_all_info_of_party(db, party.id) for party in all_parties]
+    return all_parties_info
+
+
+@router.get("/{party_id}/info/all", response_model=parties.PartyAllInfoResponse)
+async def get_all_info_of_one_party(party_id: UUID, db: Session = Depends(get_db)):
     check_party_id_exists(db, party_id)
-    dms = get_dms_of_party(db, party_id)
-    return [dm for dm in dms]
+    return get_all_info_of_party(db, party_id)
+
+
+# @router.get("/{party_id}/info/dms", response_model=List[auth_schemas.UserResponse])
+# async def get_dm(party_id: UUID, db: Session = Depends(get_db)):
+#     check_party_id_exists(db, party_id)
+#     dms = get_dms_of_party(db, party_id)
+#     return [dm for dm in dms]

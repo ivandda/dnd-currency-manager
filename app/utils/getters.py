@@ -34,10 +34,6 @@ def get_character_by_id(db, character_id):
     return db.query(domain.Characters).filter(domain.Characters.id == character_id).first()
 
 
-def get_user_id_by_character_id(db, character_id):
-    return get_character_by_id(db, character_id).user_id
-
-
 def get_character_name(db, character_id):
     return get_character_by_id(db, character_id).name
 
@@ -92,7 +88,7 @@ def get_money_in_character_wallet(db, character_id: UUID) -> int:
     return character_money
 
 
-def get_character_wallet_with_user_id_and_character_id(db, user_id: UUID, character_id: UUID):
+def get_wallet_with_user_id_and_character_id(db, user_id: UUID, character_id: UUID):
     character_wallet = db.query(domain.Wallet).join(domain.Characters).join(auth.users_characters).filter(
         auth.users_characters.c.user_id == user_id).filter(domain.Characters.id == character_id).first()
     return character_wallet

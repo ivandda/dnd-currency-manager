@@ -27,7 +27,7 @@ def subtract_money(db, id, amount):
         return wallet
 
 
-# NOT TESTED:
+
 def divide_money_evenly(total_money, num_people):
     if num_people <= 0:
         raise ValueError("Number of people must be greater than 0")

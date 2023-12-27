@@ -25,6 +25,18 @@ ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 
 
+@router.post("/users/", response_model=User)
+async def create_user(user: CreateUser, db: SessionLocal = Depends(get_db)):
+    db_user = auth.User(username=user.username,
+                        email=user.email,
+                        hashed_password=get_password_hash(user.password),
+                        disabled=False)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
 @router.post("/token", response_model=Token)
 async def login_for_access_token(
         form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
@@ -44,17 +56,5 @@ async def login_for_access_token(
 
 
 @router.get("/users/me/", response_model=User)
-async def read_users_me(current_user: Annotated[User, Depends(get_current_user)]):
+async def get_info_of_logged_user(current_user: Annotated[User, Depends(get_current_user)]):
     return current_user
-
-
-@router.post("/users/", response_model=User)
-async def create_user(user: CreateUser, db: SessionLocal = Depends(get_db)):
-    db_user = auth.User(username=user.username,
-                        email=user.email,
-                        hashed_password=get_password_hash(user.password),
-                        disabled=False)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user

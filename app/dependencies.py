@@ -41,4 +41,5 @@ tags_metadata = [
 
 # more swagger_ui_parameters :https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/
 swagger_ui_parameters = {"filter": True,
-                         "operationsSorter": "method"}
+                         # "operationsSorter": "method"
+                         }

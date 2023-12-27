@@ -41,14 +41,14 @@ async def create_character(character: characters.CharacterCreate,
     return new_character
 
 
-@router.get("/", response_model=List[characters.CharacterAllInfoResponse], status_code=status.HTTP_200_OK)
+@router.get("/info", response_model=List[characters.CharacterAllInfoResponse], status_code=status.HTTP_200_OK)
 async def get_all_info_of_all_characters_from_user(db: Session = Depends(get_db),
                                                    user_id: UUID = Depends(get_current_user_id)):
     all_characters = get_all_characters_with_user_id(db, user_id)
     return [get_all_character_info(db, character.id) for character in all_characters]
 
 
-@router.get("/{character_id}", response_model=characters.CharacterAllInfoResponse, status_code=status.HTTP_200_OK)
+@router.get("/{character_id}/info", response_model=characters.CharacterAllInfoResponse, status_code=status.HTTP_200_OK)
 async def all_character_info(character_id: UUID,
                              db: Session = Depends(get_db),
                              user_id: int = Depends(get_current_user_id)):
