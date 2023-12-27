@@ -14,6 +14,10 @@ def get_db():
 
 tags_metadata = [
     {
+        "name": "auth",
+        "description": "Authentication: login and register",
+    },
+    {
         "name": "characters",
         "description": "Characters: create and get info",
     },
@@ -22,12 +26,12 @@ tags_metadata = [
         "description": "Parties: create, get info, add characters",
     },
     {
-        "name": "money dm",
-        "description": "Money operations only a DM can do",
-    },
-    {
         "name": "money characters",
         "description": "Money operations characters can do",
+    },
+    {
+        "name": "money dm",
+        "description": "Money operations only a DM can do",
     },
     {
         "name": "money parties",
