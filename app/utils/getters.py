@@ -141,10 +141,12 @@ def get_all_info_of_party(db, party_id) -> PartyAllInfoResponse:
     party = get_party_by_id(db, party_id)
     all_characters_in_party = [get_all_character_info(db, character.id)
                                for character in get_all_characters_in_party(db, party_id)]
+    dms_ids = [dm.id for dm in get_dms_of_party(db, party_id)]
     return PartyAllInfoResponse(id=party.id,
                                 name=party.name,
                                 characters=all_characters_in_party,
-                                created_at=party.created_at)
+                                created_at=party.created_at,
+                                dms=dms_ids)
 
 
 def get_dms_of_party(db, party_id):
