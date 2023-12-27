@@ -14,9 +14,12 @@ class TokenData(BaseModel):
 
 
 class User(BaseModel):
+    id: UUID
     username: str
     email: str | None = None
     full_name: str | None = None
+    disabled: bool | None = None
+    created_at: datetime | None = None
 
 
 class CreateUser(BaseModel):

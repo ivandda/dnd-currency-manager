@@ -12,7 +12,15 @@ def get_all_characters(db):
 
 
 def get_all_characters_with_user_id(db, user_id):
-    return db.query(models.Characters).filter(models.Characters.user_id == user_id).all()
+    # return db.query(models.Characters).filter(models.Characters.user_id == user_id).all()
+    return (db.query(models.Characters).join(models.users_characters)
+            .filter(models.users_characters.c.user_id == user_id).all())
+
+
+def get_character_with_user_id_and_character_id(db, user_id, character_id):
+    return (db.query(models.Characters).join(models.users_characters)
+            .filter(models.users_characters.c.user_id == user_id)
+            .filter(models.Characters.id == character_id).first())
 
 
 def get_all_character_names(db):

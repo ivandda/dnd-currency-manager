@@ -18,6 +18,7 @@ class User(Base):
                         server_default=text("now()"), nullable=False)
 
     parties = relationship("Parties", secondary="dm_parties", back_populates="users")
+    characters = relationship("Characters", secondary="users_characters", back_populates="users")
 
 
 dm_parties = Table(

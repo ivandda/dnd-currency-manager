@@ -6,6 +6,13 @@ from sqlalchemy.orm import relationship
 
 from app.database.database import Base
 
+users_characters = Table(
+    "users_characters",
+    Base.metadata,
+    Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("character_id", UUID(as_uuid=True), ForeignKey("characters.id", ondelete="CASCADE"), primary_key=True),
+)
+
 character_parties = Table(
     "character_parties",
     Base.metadata,
@@ -21,9 +28,10 @@ class Characters(Base):
     name = Column(String, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True),
                         server_default=text("now()"), nullable=False)
+    # user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     parties = relationship("Parties", secondary="character_parties", back_populates="characters")
+    users = relationship("User", secondary="users_characters", back_populates="characters")
 
 
 class Parties(Base):
