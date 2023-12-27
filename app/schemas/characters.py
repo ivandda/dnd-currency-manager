@@ -8,9 +8,6 @@ from pydantic import BaseModel, Field, constr, field_validator
 from app.schemas.parties import PartyResponse
 
 
-# class CharacterCreate(BaseModel):
-#     name: str
-
 class CharacterCreate(BaseModel):
     name: constr(min_length=4) = Field(
         ...,
