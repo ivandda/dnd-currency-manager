@@ -27,3 +27,10 @@ dm_parties = Table(
     Column("dm_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
     Column("party_id", UUID(as_uuid=True), ForeignKey("parties.id", ondelete="CASCADE"), primary_key=True),
 )
+
+users_characters = Table(
+    "users_characters",
+    Base.metadata,
+    Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("character_id", UUID(as_uuid=True), ForeignKey("characters.id", ondelete="CASCADE"), primary_key=True),
+)
