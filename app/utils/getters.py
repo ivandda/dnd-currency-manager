@@ -93,7 +93,10 @@ def get_money_in_character_wallet(db, character_id: UUID) -> int:
     return character_money
 
 
-# def get_all_info_in_wallet(db, wallet_id):
+def get_character_wallet_with_user_id_and_character_id(db, user_id: UUID, character_id: UUID):
+    character_wallet = db.query(models.Wallet).join(models.Characters).join(models.users_characters).filter(models.users_characters.c.user_id == user_id).filter(models.Characters.id == character_id).first()
+    return character_wallet
+
 
 
 #

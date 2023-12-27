@@ -7,7 +7,7 @@ from app.utils.auth import get_current_user_id
 from app.utils.checks import *
 from app.utils.currency import *
 from app.utils.currency_convertions import convert_to_type, convert_to_copper
-from app.utils.getters import get_user_id_by_character_id
+from app.utils.getters import get_character_wallet_with_user_id_and_character_id
 
 router = APIRouter(
     prefix="/money/characters",
@@ -18,10 +18,11 @@ router = APIRouter(
 @router.get("/{id}/funds", response_model=Money)
 async def check_funds(id: UUID, db: Session = Depends(get_db),
                       user_id: UUID = Depends(get_current_user_id)):
-    check_character_id_exists(db, id)
-    check_user_id_is_authenticated(user_id, get_user_id_by_character_id(db, id))
+    character_wallet = get_character_wallet_with_user_id_and_character_id(db, user_id, id)
+    if character_wallet is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    copper = get_money_in_character_wallet(db, id)
+    copper = character_wallet.money_copper
     money_simplified = convert_to_simplified(copper)
     return Money(**money_simplified)
 
@@ -30,10 +31,12 @@ async def check_funds(id: UUID, db: Session = Depends(get_db),
 async def get_funds_simplified_to_currency_type(id: UUID, currency_type: str = Query(...),
                                                 db: Session = Depends(get_db),
                                                 user_id: UUID = Depends(get_current_user_id)):
-    check_character_id_exists(db, id)
-    check_user_id_is_authenticated(user_id, get_user_id_by_character_id(db, id))
     check_currency_type(currency_type)
-    money_in_copper = get_money_in_character_wallet(db, id)
+    character_wallet = get_character_wallet_with_user_id_and_character_id(db, user_id, id)
+    if character_wallet is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    money_in_copper = character_wallet.money_copper
     money_simplified_to_curr_type = convert_to_type(money_in_copper, currency_type)
     return Money(**money_simplified_to_curr_type)
 
@@ -41,12 +44,18 @@ async def get_funds_simplified_to_currency_type(id: UUID, currency_type: str = Q
 @router.put("/transfer/{remitter_id}/{beneficiary_id}", status_code=status.HTTP_200_OK)
 async def transfer_money(remitter_id: UUID, amount: Money, beneficiary_id: UUID,
                          db: Session = Depends(get_db), user_id: UUID = Depends(get_current_user_id)):
-    check_character_id_exists(db, remitter_id)
-    check_character_id_exists(db, beneficiary_id)
-    check_user_id_is_authenticated(user_id, get_user_id_by_character_id(db, remitter_id))
+    remitter_wallet = get_character_wallet_with_user_id_and_character_id(db, user_id, remitter_id)
+    beneficiary_wallet = get_wallet_with_character_id(db, beneficiary_id)
+
+    if remitter_wallet is None or beneficiary_wallet is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     copper_amount = convert_to_copper(amount)
-    check_character_has_funds(db, remitter_id, copper_amount)
-    subtract_money(db, remitter_id, copper_amount)
-    add_money(db, beneficiary_id, copper_amount)
+
+    if remitter_wallet.money_copper < copper_amount:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Character does not have enough funds")
+
+    remitter_wallet.money_copper -= copper_amount
+    beneficiary_wallet.money_copper += copper_amount
     return {"message": "Transfer completed"}
