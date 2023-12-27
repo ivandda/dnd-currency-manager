@@ -25,7 +25,7 @@ async def create_character(character: characters.CharacterCreate,
 
     check_character_name_exists(character_name, db)
 
-    new_character = models.Characters(name=character_name)
+    new_character = domain.Characters(name=character_name)
     db.add(new_character)
     new_character.users.append(get_user_by_id(db, user_id))
 
@@ -33,7 +33,7 @@ async def create_character(character: characters.CharacterCreate,
     db.refresh(new_character)
 
     # Add new wallet to character
-    character_wallet = models.Wallet(character_id=new_character.id)
+    character_wallet = domain.Wallet(character_id=new_character.id)
     db.add(character_wallet)
     db.commit()
     db.refresh(character_wallet)

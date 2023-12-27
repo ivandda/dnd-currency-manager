@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from app.models import models, auth
+from app.models import domain, auth
 from app.schemas.characters import CharacterAllInfoResponse
 from app.schemas.parties import PartyAllInfoResponse, PartyResponse
 from app.utils.currency_convertions import convert_to_simplified
@@ -8,19 +8,18 @@ from app.utils.currency_convertions import convert_to_simplified
 
 # CHARACTERS---------------------------------------------------:
 def get_all_characters(db):
-    return db.query(models.Characters).all()
+    return db.query(domain.Characters).all()
 
 
 def get_all_characters_with_user_id(db, user_id):
-    # return db.query(models.Characters).filter(models.Characters.user_id == user_id).all()
-    return (db.query(models.Characters).join(models.users_characters)
-            .filter(models.users_characters.c.user_id == user_id).all())
+    return (db.query(domain.Characters).join(auth.users_characters)
+            .filter(auth.users_characters.c.user_id == user_id).all())
 
 
 def get_character_with_user_id_and_character_id(db, user_id, character_id):
-    return (db.query(models.Characters).join(models.users_characters)
-            .filter(models.users_characters.c.user_id == user_id)
-            .filter(models.Characters.id == character_id).first())
+    return (db.query(domain.Characters).join(auth.users_characters)
+            .filter(auth.users_characters.c.user_id == user_id)
+            .filter(domain.Characters.id == character_id).first())
 
 
 def get_all_character_names(db):
@@ -32,7 +31,7 @@ def get_all_character_ids(db):
 
 
 def get_character_by_id(db, character_id):
-    return db.query(models.Characters).filter(models.Characters.id == character_id).first()
+    return db.query(domain.Characters).filter(domain.Characters.id == character_id).first()
 
 
 def get_user_id_by_character_id(db, character_id):
@@ -44,7 +43,7 @@ def get_character_name(db, character_id):
 
 
 def get_all_parties_character_is_in(db, character_id):
-    return db.query(models.Parties).filter(models.Parties.characters.any(id=character_id)).all()
+    return db.query(domain.Parties).filter(domain.Parties.characters.any(id=character_id)).all()
 
 
 def get_all_character_info(db, character_id) -> CharacterAllInfoResponse:
@@ -66,7 +65,7 @@ def get_all_character_info(db, character_id) -> CharacterAllInfoResponse:
 # WALLET---------------------------------------------------:
 
 def get_all_wallets(db):
-    return db.query(models.Wallet).all()
+    return db.query(domain.Wallet).all()
 
 
 def get_all_wallet_ids(db):
@@ -74,11 +73,11 @@ def get_all_wallet_ids(db):
 
 
 def get_wallet_by_id(db, wallet_id):
-    return db.query(models.Wallet).filter(models.Wallet.id == wallet_id).first()
+    return db.query(domain.Wallet).filter(domain.Wallet.id == wallet_id).first()
 
 
 def get_wallet_with_character_id(db, character_id):
-    return db.query(models.Wallet).filter(models.Wallet.character_id == character_id).first()
+    return db.query(domain.Wallet).filter(domain.Wallet.character_id == character_id).first()
 
 
 def get_money_in_wallet(db, wallet_id):
@@ -94,9 +93,9 @@ def get_money_in_character_wallet(db, character_id: UUID) -> int:
 
 
 def get_character_wallet_with_user_id_and_character_id(db, user_id: UUID, character_id: UUID):
-    character_wallet = db.query(models.Wallet).join(models.Characters).join(models.users_characters).filter(models.users_characters.c.user_id == user_id).filter(models.Characters.id == character_id).first()
+    character_wallet = db.query(domain.Wallet).join(domain.Characters).join(auth.users_characters).filter(
+        auth.users_characters.c.user_id == user_id).filter(domain.Characters.id == character_id).first()
     return character_wallet
-
 
 
 #
@@ -105,7 +104,7 @@ def get_character_wallet_with_user_id_and_character_id(db, user_id: UUID, charac
 #
 # PARTY---------------------------------------------------:
 def get_all_parties(db):
-    return db.query(models.Parties).all()
+    return db.query(domain.Parties).all()
 
 
 def get_all_party_names(db):
@@ -117,7 +116,7 @@ def get_all_party_ids(db):
 
 
 def get_party_by_id(db, party_id):
-    return db.query(models.Parties).filter(models.Parties.id == party_id).first()
+    return db.query(domain.Parties).filter(domain.Parties.id == party_id).first()
 
 
 def get_all_characters_in_party(db, party_id):

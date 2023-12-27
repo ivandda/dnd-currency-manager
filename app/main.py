@@ -3,10 +3,10 @@ from starlette.responses import RedirectResponse
 
 from app.database.database import engine
 from app.dependencies import tags_metadata, swagger_ui_parameters
-from app.models import models
+from app.models import domain
 from app.routers import characters, parties, money_parties, money_dm, money_character, auth
 
-models.Base.metadata.create_all(bind=engine)
+domain.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="DND currency manager",

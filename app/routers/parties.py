@@ -18,14 +18,14 @@ router = APIRouter(
 
 @router.get("/all-ids", response_model=List[parties.PartyResponse])
 async def get_all_parties_ids_names_and_created_date(db: Session = Depends(get_db)):
-    all_parties = db.query(models.Parties).all()
+    all_parties = db.query(domain.Parties).all()
 
     return all_parties
 
 
 @router.get("/all-info", response_model=List[parties.PartyAllInfoResponse])
 async def get_all_info_of_all_parties(db: Session = Depends(get_db)):
-    all_parties = db.query(models.Parties).all()
+    all_parties = db.query(domain.Parties).all()
     all_parties_info = [get_all_info_of_party(db, party.id) for party in all_parties]
     return all_parties_info
 
@@ -38,7 +38,7 @@ async def get_all_info_of_one_party(id: UUID, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=parties.PartyResponse, status_code=status.HTTP_201_CREATED)
 async def create_party(party: parties.PartyCreate, db: Session = Depends(get_db)):
-    new_party = models.Parties(**party.model_dump())
+    new_party = domain.Parties(**party.model_dump())
 
     check_party_name_exists(new_party.name, db)
 
