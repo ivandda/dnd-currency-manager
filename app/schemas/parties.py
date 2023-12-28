@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+from typing import List
 from uuid import UUID
 
 from pydantic import BaseModel, Field, constr, field_validator
@@ -35,4 +36,4 @@ class PartyAllInfoResponse(BaseModel):
     name: str
     characters: list
     created_at: datetime
-    dms: list[UUID]
+    dms: List[UUID]
