@@ -19,7 +19,7 @@ app = FastAPI(
 
 
 @app.get("/")
-async def redirect_to_home_page():
+async def redirect_to_docs():
     return RedirectResponse(url="/docs", status_code=status.HTTP_302_FOUND)
 
 

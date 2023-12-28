@@ -76,7 +76,7 @@ async def get_all_parties_ids_names_and_created_date(db: Session = Depends(get_d
 
 # @router.get("/info/all", response_model=List[parties.PartyAllInfoResponse])
 # async def get_all_info_of_all_parties(db: Session = Depends(get_db),
-#                                       user_id: int = Depends(get_current_user_id)):
+#                                       user_id: UUID = Depends(get_current_user_id)):
 #     all_parties = db.query(domain.Parties).all()
 #     all_parties_info = [get_all_info_of_party(db, party.id) for party in all_parties]
 #     return all_parties_info
