@@ -23,7 +23,7 @@ tags_metadata = [
     },
     {
         "name": "parties",
-        "description": "Parties: create, get info, add characters",
+        "description": "Parties: create, get info, add characters, assign DM",
     },
     {
         "name": "money characters",
@@ -31,7 +31,7 @@ tags_metadata = [
     },
     {
         "name": "money dm",
-        "description": "Money operations only a DM can do",
+        "description": "Money operations only a DM of a party can do",
     },
     {
         "name": "money parties",
