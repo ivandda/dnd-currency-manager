@@ -1,18 +1,17 @@
-# ⚔️ D&D Currency Manager — LAN Party Edition
+# ⚔️ D&D Currency Manager — LAN Party
 
-Real-time currency management for Dungeons & Dragons parties, designed to run on a local network.
+Real-time currency management for Dungeons & Dragons parties, designed to run on a local network (LAN).
 
 > **DM creates a party → Players join with a code → Everyone manages coins in real time.**
 
 ## Features
 
-- 🪙 **Multi-currency support** — Platinum, Gold, Electrum, Silver, Copper (configurable per party)
 - 💱 **P2P Transfers** — Players send coins to each other
 - 💰 **DM Loot Distribution** — Split treasure evenly among selected players
 - ⚡ **DM God Mode** — Add or deduct funds from any character
-- 🤝 **Joint Payments** — Split costs among party members (requires acceptance)
+- 🤝 **Joint Payments** — Split costs among party members
+- 🪙 **Multi-currency support** — Platinum, Gold, Electrum, Silver, Copper (configurable per party)
 - 📡 **Real-time updates** — SSE keeps all clients in sync
-- 🏰 **Medieval fantasy UI** — Dark themed with gold accents
 
 ---
 
@@ -26,7 +25,7 @@ Real-time currency management for Dungeons & Dragons parties, designed to run on
 ### 1. Clone & configure
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/ivandda/dnd-currency-manager-lan
 cd dnd-currency-manager-lan
 cp .env.example .env
 ```
@@ -51,11 +50,12 @@ This starts 3 services:
 ### 3. Use the app
 
 1. Open **http://localhost:3000**
-2. **Create an account** (click "Create Account" tab)
-3. **Create a party** — you become the DM, get a 4-character party code
-4. Share the code with your players on the same network
-5. Players **register** → **join** with the code + character name & class
-6. Start managing currency! 🎲
+2. Share the **LAN URL** with other players
+3. **Create an account** (click "Create Account" tab)
+4. **Create a party** — you become the DM, get a 4-character party code
+5. Share the code with your players
+6. Players **register** → **join** with the code + character name & class
+7. Start managing currency! 🎲
 
 ### 4. Share on LAN
 
@@ -149,34 +149,6 @@ docker compose up -d --build
 
 ---
 
-## Project Structure
-
-```
-dnd-currency-manager-lan/
-├── backend/
-│   ├── app/
-│   │   ├── api/          # Route handlers (auth, parties, transfers, etc.)
-│   │   ├── core/         # Security, config, currency engine, SSE
-│   │   ├── models/       # SQLModel database models
-│   │   └── schemas/      # Pydantic request/response schemas
-│   ├── tests/            # pytest test suite (90 tests)
-│   ├── alembic/          # Database migrations
-│   ├── Dockerfile
-│   └── pyproject.toml
-├── frontend/
-│   ├── app/              # Next.js pages
-│   ├── components/       # UI components (shadcn/ui + custom)
-│   ├── lib/              # API client, auth context, types
-│   ├── hooks/            # Custom React hooks (SSE)
-│   ├── Dockerfile
-│   └── package.json
-├── docker-compose.yaml
-├── .env                  # Environment variables (gitignored)
-└── .env.example          # Template for .env
-```
-
----
-
 ## Tech Stack
 
 | Layer     | Technology                          |
@@ -189,17 +161,3 @@ dnd-currency-manager-lan/
 | DevOps    | Docker Compose, uv, pnpm           |
 
 ---
-
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `POSTGRES_USER` | DB username | `dnd_user` |
-| `POSTGRES_PASSWORD` | DB password | `dnd_password` |
-| `POSTGRES_DB` | Database name | `dnd_currency` |
-| `DATABASE_URL` | Full DB connection string | `postgresql://dnd_user:dnd_password@db:5432/dnd_currency` |
-| `SECRET_KEY` | JWT signing key | (change in production!) |
-| `ALGORITHM` | JWT algorithm | `HS256` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL | `30` |
-| `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL | `7` |
-| `NEXT_PUBLIC_API_URL` | API URL for frontend | `http://localhost:8000` |
