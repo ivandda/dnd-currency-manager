@@ -42,7 +42,8 @@ next-env.d.ts
 
 # ---
 
-backend/Dockerfile
+# Alembic
+backend/alembic/versions/__pycache__/
 
 # Logs
 logs
