@@ -284,7 +284,7 @@ def archive_party(
 
 
 @router.patch("/{code}/coins", response_model=PartyResponse)
-def update_coin_config(
+async def update_coin_config(
     body: PartyUpdateCoins,
     party: Party = Depends(require_active_party),
     dm_user: User = Depends(require_dm),
@@ -301,5 +301,7 @@ def update_coin_config(
     session.add(party)
     session.commit()
     session.refresh(party)
+
+    await event_manager.broadcast(party.id, "party_update", {"party_id": party.id})
 
     return party
