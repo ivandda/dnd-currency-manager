@@ -171,7 +171,7 @@ def get_party_detail(
 
 
 @router.post("/{code}/join", response_model=CharacterInParty)
-def join_party(
+async def join_party(
     body: PartyJoin,
     party: Party = Depends(require_active_party),
     current_user: User = Depends(get_current_user),
@@ -208,11 +208,13 @@ def join_party(
     session.commit()
     session.refresh(character)
 
+    await event_manager.broadcast(party.id, "party_update", {"party_id": party.id})
+
     return _build_character_response(character, party, session)
 
 
 @router.post("/{code}/leave", response_model=MessageResponse)
-def leave_party(
+async def leave_party(
     party: Party = Depends(get_party_by_code),
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
@@ -236,11 +238,13 @@ def leave_party(
     session.add(character)
     session.commit()
 
+    await event_manager.broadcast(party.id, "party_update", {"party_id": party.id})
+
     return MessageResponse(message=f"{character.name} has left the party")
 
 
 @router.post("/{code}/kick", response_model=MessageResponse)
-def kick_character(
+async def kick_character(
     body: KickRequest,
     party: Party = Depends(require_active_party),
     dm_user: User = Depends(require_dm),
@@ -265,11 +269,13 @@ def kick_character(
     session.add(character)
     session.commit()
 
+    await event_manager.broadcast(party.id, "party_update", {"party_id": party.id})
+
     return MessageResponse(message=f"{character.name} has been kicked from the party")
 
 
 @router.patch("/{code}/archive", response_model=PartyResponse)
-def archive_party(
+async def archive_party(
     party: Party = Depends(get_party_by_code),
     dm_user: User = Depends(require_dm),
     session: Session = Depends(get_session),
@@ -280,11 +286,13 @@ def archive_party(
     session.commit()
     session.refresh(party)
 
+    await event_manager.broadcast(party.id, "party_update", {"party_id": party.id})
+
     return party
 
 
 @router.patch("/{code}/coins", response_model=PartyResponse)
-def update_coin_config(
+async def update_coin_config(
     body: PartyUpdateCoins,
     party: Party = Depends(require_active_party),
     dm_user: User = Depends(require_dm),
@@ -301,5 +309,7 @@ def update_coin_config(
     session.add(party)
     session.commit()
     session.refresh(party)
+
+    await event_manager.broadcast(party.id, "party_update", {"party_id": party.id})
 
     return party
