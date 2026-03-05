@@ -641,11 +641,11 @@ function DMControls({
                 {/* Mode toggle */}
                 <div className="flex gap-1.5 mb-4">
                     <button type="button" onClick={() => { setMode("loot"); setIsDeduction(false); }}
-                        className={`flex-1 py-2.5 rounded-md text-xs font-medium transition-all ${mode === "loot" ? "bg-green-900/30 text-green-400 border border-green-700/50" : "bg-secondary/30 text-muted-foreground"}`}>
+                        className={`flex-1 py-2.5 rounded-md text-xs font-medium transition-all ${mode === "loot" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30" : "bg-secondary/30 text-muted-foreground"}`}>
                         💰 Loot
                     </button>
                     <button type="button" onClick={() => setMode("god")}
-                        className={`flex-1 py-2.5 rounded-md text-xs font-medium transition-all ${mode === "god" ? "bg-purple-900/30 text-purple-400 border border-purple-700/50" : "bg-secondary/30 text-muted-foreground"}`}>
+                        className={`flex-1 py-2.5 rounded-md text-xs font-medium transition-all ${mode === "god" ? "bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/30" : "bg-secondary/30 text-muted-foreground"}`}>
                         ⚡ God Mode
                     </button>
                 </div>
@@ -673,11 +673,11 @@ function DMControls({
                     {mode === "god" && (
                         <div className="flex gap-1.5">
                             <button type="button" onClick={() => setIsDeduction(false)}
-                                className={`flex-1 py-2 rounded-md text-xs ${!isDeduction ? "bg-green-900/30 text-green-400 border border-green-700/50" : "bg-secondary/30 text-muted-foreground"}`}>
+                                className={`flex-1 py-2 rounded-md text-xs ${!isDeduction ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30" : "bg-secondary/30 text-muted-foreground"}`}>
                                 ➕ Add
                             </button>
                             <button type="button" onClick={() => setIsDeduction(true)}
-                                className={`flex-1 py-2 rounded-md text-xs ${isDeduction ? "bg-red-900/30 text-red-400 border border-red-700/50" : "bg-secondary/30 text-muted-foreground"}`}>
+                                className={`flex-1 py-2 rounded-md text-xs ${isDeduction ? "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30" : "bg-secondary/30 text-muted-foreground"}`}>
                                 ➖ Deduct
                             </button>
                         </div>
@@ -808,7 +808,7 @@ function SplitsTab({
                                     {availableReceivers.map((c) => (
                                         <button key={c.id} type="button"
                                             onClick={() => setReceiverId(c.id)}
-                                            className={`px-3 py-2 rounded-md text-xs transition-all ${receiverId === c.id ? "bg-green-900/30 text-green-400 border border-green-700/50" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
+                                            className={`px-3 py-2 rounded-md text-xs transition-all ${receiverId === c.id ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
                                             {c.name}
                                         </button>
                                     ))}
@@ -858,7 +858,7 @@ function SplitsTab({
                         {past.map((p) => (
                             <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-secondary/10 border border-border/10 opacity-60">
                                 <CoinDisplay coins={p.total_amount_display} size="sm" />
-                                <Badge variant="outline" className={`text-[10px] ${p.status === "approved" ? "text-green-400 border-green-700/50" : p.status === "cancelled" ? "text-red-400 border-red-700/50" : "text-muted-foreground"}`}>
+                                <Badge variant="outline" className={`text-[10px] ${p.status === "approved" ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/40" : p.status === "cancelled" ? "text-red-600 dark:text-red-400 border-red-500/40" : "text-muted-foreground"}`}>
                                     {p.status}
                                 </Badge>
                             </div>
@@ -886,7 +886,7 @@ function SplitCard({
         (myCharacter && payment.creator_character_id === myCharacter.id);
 
     return (
-        <Card className={`card-medieval border-yellow-700/20 ${!isParticipant && !isDM ? "opacity-50" : ""}`}>
+        <Card className={`card-medieval border-amber-500/20 ${!isParticipant && !isDM ? "opacity-50" : ""}`}>
             <CardContent className="py-3 space-y-2">
                 <div className="flex items-start justify-between">
                     <div>
@@ -894,10 +894,10 @@ function SplitCard({
                         {payment.reason && <p className="text-xs text-muted-foreground italic mt-0.5">{payment.reason}</p>}
                         <p className="text-[10px] text-muted-foreground mt-0.5">by {payment.creator_name || "DM"}</p>
                         {payment.receiver_name && (
-                            <p className="text-[10px] text-green-400 mt-0.5">→ pays {payment.receiver_name}</p>
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">→ pays {payment.receiver_name}</p>
                         )}
                     </div>
-                    <Badge className="bg-yellow-900/20 text-yellow-400 border-yellow-700/30 text-[10px]">Pending</Badge>
+                    <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px]">Pending</Badge>
                 </div>
 
                 {/* Non-participant notice */}
@@ -909,16 +909,16 @@ function SplitCard({
                     {payment.participants.map((p) => (
                         <div key={p.character_id} className="flex items-center justify-between text-xs">
                             <span>{p.character_name}: <CoinDisplay coins={p.share_display} size="sm" /></span>
-                            <span className={p.has_accepted ? "text-green-400" : "text-yellow-500"}>{p.has_accepted ? "✓" : "…"}</span>
+                            <span className={p.has_accepted ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>{p.has_accepted ? "✓" : "…"}</span>
                         </div>
                     ))}
                 </div>
 
                 {needsMyAction && (
                     <div className="flex gap-2">
-                        <Button size="sm" className="flex-1 h-9 bg-green-900/30 text-green-400 hover:bg-green-900/50"
+                        <Button size="sm" className="flex-1 h-9 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30"
                             onClick={() => onAction(payment.id, "accept")}>✓ Accept</Button>
-                        <Button size="sm" variant="outline" className="flex-1 h-9 text-red-400 border-red-700/50 hover:bg-red-900/30"
+                        <Button size="sm" variant="outline" className="flex-1 h-9 text-red-600 dark:text-red-400 border-red-500/40 hover:bg-red-500/10"
                             onClick={() => onAction(payment.id, "reject")}>✗ Reject</Button>
                     </div>
                 )}
@@ -939,12 +939,12 @@ function SplitCard({
 
 function HistoryTab({ transactions }: { transactions: TransactionResponse[] }) {
     const labels: Record<string, { icon: string; label: string; color: string }> = {
-        transfer: { icon: "💱", label: "Transfer", color: "text-blue-400" },
-        dm_grant: { icon: "💰", label: "DM Loot", color: "text-green-400" },
-        dm_deduct: { icon: "⚡", label: "DM Deduct", color: "text-red-400" },
-        joint_payment: { icon: "🤝", label: "Split", color: "text-yellow-400" },
+        transfer: { icon: "💱", label: "Transfer", color: "text-blue-600 dark:text-blue-400" },
+        dm_grant: { icon: "💰", label: "DM Loot", color: "text-emerald-600 dark:text-emerald-400" },
+        dm_deduct: { icon: "⚡", label: "DM Deduct", color: "text-red-600 dark:text-red-400" },
+        joint_payment: { icon: "🤝", label: "Split", color: "text-amber-600 dark:text-amber-400" },
         spend: { icon: "🛒", label: "NPC Purchase", color: "text-copper" },
-        self_add: { icon: "➕", label: "Self Add", color: "text-green-300" },
+        self_add: { icon: "➕", label: "Self Add", color: "text-emerald-500 dark:text-emerald-300" },
     };
 
     return (

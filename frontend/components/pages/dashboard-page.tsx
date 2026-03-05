@@ -242,8 +242,8 @@ export default function DashboardPage() {
                                         <Badge
                                             variant={party.is_active ? "default" : "secondary"}
                                             className={party.is_active
-                                                ? "bg-green-900/50 text-green-400 border-green-700/50"
-                                                : "bg-red-900/30 text-red-400 border-red-700/50"
+                                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                                : "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30"
                                             }
                                         >
                                             {party.is_active ? "Active" : "Archived"}
