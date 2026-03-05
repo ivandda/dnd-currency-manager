@@ -58,7 +58,8 @@ async function request<T>(
         // Network-level failure (DNS, cold start, CORS preflight timeout).
         // Retry once after a short delay — this fixes the common "first
         // request after load fails" issue with Docker/LAN setups.
-        if (!_isRetry) {
+        const isSafeMethod = !options.method || options.method.toUpperCase() === 'GET' || options.method.toUpperCase() === 'HEAD';
+        if (!_isRetry && isSafeMethod) {
             await new Promise((r) => setTimeout(r, 800));
             return request<T>(path, options, true);
         }
