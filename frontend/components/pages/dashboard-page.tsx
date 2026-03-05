@@ -308,21 +308,39 @@ function CoinToggle({
 
 function ShareUrlBanner() {
     const [copied, setCopied] = useState(false);
-    const [url, setUrl] = useState("");
+    const [lanUrl, setLanUrl] = useState("");
 
     useEffect(() => {
-        setUrl(window.location.origin);
+        // Fetch the actual LAN URL from the backend
+        const fetchLanUrl = async () => {
+            try {
+                const res = await fetch(`http://${window.location.hostname}:8000/api/network/lan-url`, {
+                    credentials: "include",
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.lan_url) {
+                        setLanUrl(data.lan_url);
+                        return;
+                    }
+                }
+            } catch {
+                // Backend not reachable — fall back
+            }
+            // Fallback: use current origin (better than nothing)
+            setLanUrl(window.location.origin);
+        };
+        fetchLanUrl();
     }, []);
 
-    if (!url) return null;
+    if (!lanUrl) return null;
 
     const handleCopy = async () => {
         try {
-            await navigator.clipboard.writeText(url);
+            await navigator.clipboard.writeText(lanUrl);
         } catch {
-            // Fallback for non-HTTPS contexts (common on LAN)
             const input = document.createElement("input");
-            input.value = url;
+            input.value = lanUrl;
             document.body.appendChild(input);
             input.select();
             document.execCommand("copy");
@@ -332,10 +350,14 @@ function ShareUrlBanner() {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const isLocalhost = lanUrl.includes("localhost") || lanUrl.includes("127.0.0.1");
+
     return (
         <div className="mb-6 flex items-center gap-3 rounded-lg bg-secondary/20 border border-border/30 px-4 py-3">
             <span className="text-sm text-muted-foreground shrink-0">📡 Share:</span>
-            <code className="text-sm text-gold font-mono truncate flex-1">{url}</code>
+            <code className={`text-sm font-mono truncate flex-1 ${isLocalhost ? "text-muted-foreground" : "text-gold"}`}>
+                {lanUrl}
+            </code>
             <button
                 onClick={handleCopy}
                 className="shrink-0 px-3 py-1 rounded-md text-xs font-medium bg-primary/20 text-gold border border-gold/30 hover:bg-primary/30 transition-all"
