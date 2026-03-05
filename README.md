@@ -122,7 +122,7 @@ ngrok will give you a public URL like `https://abc123.ngrok-free.app` — share 
 > ngrok http 8000
 > ```
 >
-> Then set the `NEXT_PUBLIC_BACKEND_URL` environment variable in the frontend to the backend's ngrok URL before starting, or update the backend URL detection in `frontend/lib/api.ts`.
+> Then set the `NEXT_PUBLIC_API_URL` environment variable in the frontend to the backend's ngrok URL before starting, or update the backend URL detection in `frontend/lib/api.ts`.
 
 ## Development
 
