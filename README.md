@@ -1,3 +1,5 @@
+![D&D Currency Manager](docs/imgs/coins_image.png)
+
 # ⚔️ D&D Currency Manager — LAN Party
 
 Real-time currency management for Dungeons & Dragons parties, designed to run on a local network (LAN).
