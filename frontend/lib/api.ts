@@ -35,7 +35,8 @@ class ApiError extends Error {
 
 async function request<T>(
     path: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    _isRetry = false,
 ): Promise<T> {
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -46,11 +47,23 @@ async function request<T>(
         headers["Authorization"] = `Bearer ${accessToken}`;
     }
 
-    const res = await fetch(`${getApiBase()}${path}`, {
-        ...options,
-        headers,
-        credentials: "include", // Send cookies (refresh token)
-    });
+    let res: Response;
+    try {
+        res = await fetch(`${getApiBase()}${path}`, {
+            ...options,
+            headers,
+            credentials: "include", // Send cookies (refresh token)
+        });
+    } catch (err) {
+        // Network-level failure (DNS, cold start, CORS preflight timeout).
+        // Retry once after a short delay — this fixes the common "first
+        // request after load fails" issue with Docker/LAN setups.
+        if (!_isRetry) {
+            await new Promise((r) => setTimeout(r, 800));
+            return request<T>(path, options, true);
+        }
+        throw new ApiError("Failed to connect to server", 0);
+    }
 
     if (!res.ok) {
         // Try to refresh token on 401
