@@ -109,7 +109,16 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
         );
     }
 
-    const pendingCount = jointPayments.filter((p) => p.status === "pending").length;
+    const pendingCount = jointPayments.filter((p) => {
+        if (p.status !== "pending") return false;
+        if (isDM) return true; // DM sees all pending
+        if (!myCharacter) return false;
+        if (p.creator_character_id === myCharacter.id) return true; // Creator sees their pending
+        // Otherwise, only if this character is a participant who hasn't accepted
+        return p.participants.some(
+            (pt) => pt.character_id === myCharacter.id && !pt.has_accepted
+        );
+    }).length;
 
     return (
         <div className="min-h-screen flex flex-col">
