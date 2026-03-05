@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { partyApi } from "@/lib/api";
 import type { Party } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import PartyView from "./party-view";
 
 export default function DashboardPage() {
     const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const [parties, setParties] = useState<Party[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedParty, setSelectedParty] = useState<string | null>(null);
@@ -100,7 +102,14 @@ export default function DashboardPage() {
                         <span className="text-2xl">⚔️</span>
                         <h1 className="text-xl font-bold text-dnd-red glow-red">D&D Currency</h1>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={toggleTheme}
+                            className="text-sm px-2 py-1 rounded-md bg-secondary/40 hover:bg-secondary/60 transition-colors"
+                            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+                        >
+                            {theme === "dark" ? "☀️" : "🌙"}
+                        </button>
                         <span className="text-sm text-muted-foreground">
                             {user?.username}
                         </span>
