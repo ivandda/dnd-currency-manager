@@ -64,46 +64,46 @@
 
 :root {
   --radius: 0.5rem;
-  /* Deep midnight / charcoal background */
-  --background: oklch(0.13 0.02 265);
+  /* Slightly brighter midnight - not pitch black */
+  --background: oklch(0.16 0.02 265);
   --foreground: oklch(0.93 0.005 265);
-  /* Cards — slightly lifted from background */
-  --card: oklch(0.17 0.02 265);
+  /* Cards — visible lift from background */
+  --card: oklch(0.20 0.02 265);
   --card-foreground: oklch(0.93 0.005 265);
-  --popover: oklch(0.17 0.02 265);
+  --popover: oklch(0.20 0.02 265);
   --popover-foreground: oklch(0.93 0.005 265);
   /* D&D Red primary */
   --primary: oklch(0.55 0.2 25);
   --primary-foreground: oklch(0.97 0.005 0);
   /* Dark slate secondary */
-  --secondary: oklch(0.22 0.015 265);
+  --secondary: oklch(0.25 0.015 265);
   --secondary-foreground: oklch(0.88 0.01 265);
   /* Muted dark blue-gray */
-  --muted: oklch(0.2 0.015 265);
-  --muted-foreground: oklch(0.6 0.02 265);
+  --muted: oklch(0.23 0.015 265);
+  --muted-foreground: oklch(0.60 0.02 265);
   /* Subtle blue accent */
-  --accent: oklch(0.3 0.04 265);
+  --accent: oklch(0.30 0.04 265);
   --accent-foreground: oklch(0.93 0.005 265);
   /* Red destructive */
   --destructive: oklch(0.55 0.22 25);
-  /* Subtle dark borders */
-  --border: oklch(0.26 0.02 265);
-  --input: oklch(0.22 0.015 265);
+  /* Visible borders */
+  --border: oklch(0.30 0.02 265);
+  --input: oklch(0.25 0.015 265);
   --ring: oklch(0.55 0.2 25);
   /* Charts */
   --chart-1: oklch(0.55 0.2 25);
-  --chart-2: oklch(0.6 0.15 160);
+  --chart-2: oklch(0.60 0.15 160);
   --chart-3: oklch(0.72 0.15 75);
-  --chart-4: oklch(0.6 0.2 265);
+  --chart-4: oklch(0.60 0.2 265);
   --chart-5: oklch(0.55 0.15 305);
   /* Sidebar */
-  --sidebar: oklch(0.15 0.02 265);
+  --sidebar: oklch(0.18 0.02 265);
   --sidebar-foreground: oklch(0.88 0.01 265);
   --sidebar-primary: oklch(0.55 0.2 25);
   --sidebar-primary-foreground: oklch(0.97 0.005 0);
-  --sidebar-accent: oklch(0.22 0.015 265);
+  --sidebar-accent: oklch(0.25 0.015 265);
   --sidebar-accent-foreground: oklch(0.88 0.01 265);
-  --sidebar-border: oklch(0.26 0.02 265);
+  --sidebar-border: oklch(0.30 0.02 265);
   --sidebar-ring: oklch(0.55 0.2 25);
   /* D&D Coin Colors */
   --gold: oklch(0.78 0.16 80);
@@ -113,6 +113,62 @@
   --electrum: oklch(0.74 0.06 100);
   /* D&D Beyond brand red */
   --dnd-red: oklch(0.55 0.2 25);
+}
+
+/* ==============================
+   Parchment / Cream Light Theme
+   ============================== */
+
+:root:is(.light) {
+  /* Warm parchment — not too white */
+  --background: oklch(0.92 0.02 80);
+  --foreground: oklch(0.18 0.02 50);
+  /* Cards — warm, slightly lighter */
+  --card: oklch(0.94 0.018 80);
+  --card-foreground: oklch(0.18 0.02 50);
+  --popover: oklch(0.94 0.018 80);
+  --popover-foreground: oklch(0.18 0.02 50);
+  /* D&D Red primary — slightly richer on light */
+  --primary: oklch(0.48 0.2 25);
+  --primary-foreground: oklch(0.97 0.005 0);
+  /* Warm secondary — distinct from bg */
+  --secondary: oklch(0.86 0.025 80);
+  --secondary-foreground: oklch(0.25 0.02 50);
+  /* Muted — readable text on warm surfaces */
+  --muted: oklch(0.88 0.02 80);
+  --muted-foreground: oklch(0.42 0.03 50);
+  /* Accent */
+  --accent: oklch(0.84 0.03 80);
+  --accent-foreground: oklch(0.18 0.02 50);
+  /* Red destructive */
+  --destructive: oklch(0.48 0.22 25);
+  /* Visible warm borders */
+  --border: oklch(0.76 0.03 80);
+  --input: oklch(0.86 0.025 80);
+  --ring: oklch(0.48 0.2 25);
+  /* Charts */
+  --chart-1: oklch(0.48 0.2 25);
+  --chart-2: oklch(0.50 0.15 160);
+  --chart-3: oklch(0.58 0.15 75);
+  --chart-4: oklch(0.50 0.2 265);
+  --chart-5: oklch(0.48 0.15 305);
+  /* Sidebar */
+  --sidebar: oklch(0.90 0.02 80);
+  --sidebar-foreground: oklch(0.20 0.02 50);
+  --sidebar-primary: oklch(0.48 0.2 25);
+  --sidebar-primary-foreground: oklch(0.97 0.005 0);
+  --sidebar-accent: oklch(0.86 0.025 80);
+  --sidebar-accent-foreground: oklch(0.20 0.02 50);
+  --sidebar-border: oklch(0.76 0.03 80);
+  --sidebar-ring: oklch(0.48 0.2 25);
+  /* D&D Coin Colors — richer for light bg */
+  --gold: oklch(0.52 0.16 80);
+  --silver-coin: oklch(0.48 0.02 240);
+  --copper: oklch(0.45 0.13 50);
+  --platinum: oklch(0.52 0.03 260);
+  --electrum: oklch(0.48 0.06 100);
+  /* D&D Beyond brand red */
+  --dnd-red: oklch(0.48 0.2 25);
 }
 
 @layer base {
@@ -140,22 +196,42 @@
 @layer utilities {
   .card-medieval {
     background: linear-gradient(135deg,
-        oklch(0.17 0.02 265) 0%,
-        oklch(0.19 0.025 265) 50%,
-        oklch(0.17 0.02 265) 100%);
-    border: 1px solid oklch(0.3 0.03 265 / 50%);
+        oklch(0.20 0.02 265) 0%,
+        oklch(0.22 0.025 265) 50%,
+        oklch(0.20 0.02 265) 100%);
+    border: 1px solid oklch(0.33 0.03 265 / 50%);
     box-shadow:
-      0 2px 8px oklch(0 0 0 / 40%),
-      inset 0 1px 0 oklch(1 0 0 / 3%);
+      0 2px 8px oklch(0 0 0 / 30%),
+      inset 0 1px 0 oklch(1 0 0 / 4%);
     transition: all 0.3s ease;
+  }
+
+  .light .card-medieval {
+    background: linear-gradient(135deg,
+        oklch(0.94 0.018 80) 0%,
+        oklch(0.92 0.022 80) 50%,
+        oklch(0.94 0.018 80) 100%);
+    border: 1px solid oklch(0.72 0.04 80);
+    box-shadow:
+      0 2px 6px oklch(0.4 0.03 80 / 15%),
+      0 1px 2px oklch(0.4 0.03 80 / 10%),
+      inset 0 1px 0 oklch(1 0 0 / 50%);
   }
 
   .card-medieval:hover {
     border-color: oklch(0.55 0.2 25 / 40%);
     box-shadow:
       0 4px 20px oklch(0.55 0.2 25 / 10%),
-      0 2px 8px oklch(0 0 0 / 40%),
-      inset 0 1px 0 oklch(1 0 0 / 4%);
+      0 2px 8px oklch(0 0 0 / 30%),
+      inset 0 1px 0 oklch(1 0 0 / 5%);
+  }
+
+  .light .card-medieval:hover {
+    border-color: oklch(0.48 0.2 25 / 35%);
+    box-shadow:
+      0 4px 16px oklch(0.48 0.2 25 / 10%),
+      0 2px 6px oklch(0.4 0.03 80 / 15%),
+      inset 0 1px 0 oklch(1 0 0 / 50%);
   }
 
   .text-gold {
@@ -192,8 +268,14 @@
 
   .bg-parchment {
     background: linear-gradient(180deg,
-        oklch(0.15 0.02 265) 0%,
-        oklch(0.12 0.015 265) 100%);
+        oklch(0.18 0.02 265) 0%,
+        oklch(0.15 0.015 265) 100%);
+  }
+
+  .light .bg-parchment {
+    background: linear-gradient(180deg,
+        oklch(0.92 0.02 80) 0%,
+        oklch(0.90 0.022 80) 100%);
   }
 
   .border-ornate {
@@ -209,6 +291,10 @@
 
   .animate-slide-up {
     animation: slideUp 0.4s ease-out;
+  }
+
+  .animate-balance-change {
+    animation: balanceFlash 0.6s ease-out;
   }
 }
 
@@ -232,4 +318,23 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes balanceFlash {
+  0% {
+    filter: brightness(1);
+  }
+
+  30% {
+    filter: brightness(1.3);
+  }
+
+  100% {
+    filter: brightness(1);
+  }
+}
+
+/* Pull-to-refresh indicator */
+.pull-indicator {
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }

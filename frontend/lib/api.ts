@@ -5,7 +5,7 @@
 // Auto-detect backend URL from browser hostname for LAN support.
 // When a LAN device opens http://192.168.1.10:3000, the API client
 // will automatically target http://192.168.1.10:8000.
-function getApiBase(): string {
+export function getApiBase(): string {
     if (typeof window !== "undefined") {
         return `http://${window.location.hostname}:8000`;
     }
@@ -35,7 +35,8 @@ class ApiError extends Error {
 
 async function request<T>(
     path: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    _isRetry = false,
 ): Promise<T> {
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -46,11 +47,24 @@ async function request<T>(
         headers["Authorization"] = `Bearer ${accessToken}`;
     }
 
-    const res = await fetch(`${getApiBase()}${path}`, {
-        ...options,
-        headers,
-        credentials: "include", // Send cookies (refresh token)
-    });
+    let res: Response;
+    try {
+        res = await fetch(`${getApiBase()}${path}`, {
+            ...options,
+            headers,
+            credentials: "include", // Send cookies (refresh token)
+        });
+    } catch (err) {
+        // Network-level failure (DNS, cold start, CORS preflight timeout).
+        // Retry once after a short delay — this fixes the common "first
+        // request after load fails" issue with Docker/LAN setups.
+        const isSafeMethod = !options.method || options.method.toUpperCase() === 'GET' || options.method.toUpperCase() === 'HEAD';
+        if (!_isRetry && isSafeMethod) {
+            await new Promise((r) => setTimeout(r, 800));
+            return request<T>(path, options, true);
+        }
+        throw new ApiError("Failed to connect to server", 0);
+    }
 
     if (!res.ok) {
         // Try to refresh token on 401
@@ -213,16 +227,16 @@ export const transactionApi = {
 // --- Joint Payment API ---
 
 export const jointPaymentApi = {
-    create: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string) =>
+    create: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string, receiver_character_id?: number) =>
         request<import("./types").JointPaymentResponse>(`/api/parties/${code}/joint-payments`, {
             method: "POST",
-            body: JSON.stringify({ character_ids, amount, reason }),
+            body: JSON.stringify({ character_ids, amount, reason, receiver_character_id }),
         }),
 
-    createDM: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string) =>
+    createDM: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string, receiver_character_id?: number) =>
         request<import("./types").JointPaymentResponse>(`/api/parties/${code}/joint-payments/dm`, {
             method: "POST",
-            body: JSON.stringify({ character_ids, amount, reason }),
+            body: JSON.stringify({ character_ids, amount, reason, receiver_character_id }),
         }),
 
     list: (code: string) =>

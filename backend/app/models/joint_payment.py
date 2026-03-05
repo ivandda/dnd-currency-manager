@@ -24,6 +24,10 @@ class JointPayment(SQLModel, table=True):
     creator_is_dm: bool = Field(default=False)
     party_id: int = Field(foreign_key="party.id")
     total_amount_cp: int
+    # When set, pooled money goes to this character. When None, money leaves the economy (NPC spend).
+    receiver_character_id: Optional[int] = Field(
+        default=None, foreign_key="character.id"
+    )
     reason: Optional[str] = Field(default=None, max_length=500)
     status: JointPaymentStatus = Field(default=JointPaymentStatus.PENDING)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

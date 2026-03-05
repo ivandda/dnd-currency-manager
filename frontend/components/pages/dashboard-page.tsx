@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { partyApi } from "@/lib/api";
+import { useTheme } from "@/lib/theme-context";
+import { partyApi, getApiBase } from "@/lib/api";
 import type { Party } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import PartyView from "./party-view";
 
 export default function DashboardPage() {
     const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const [parties, setParties] = useState<Party[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedParty, setSelectedParty] = useState<string | null>(null);
@@ -100,7 +102,14 @@ export default function DashboardPage() {
                         <span className="text-2xl">⚔️</span>
                         <h1 className="text-xl font-bold text-dnd-red glow-red">D&D Currency</h1>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={toggleTheme}
+                            className="text-sm px-2 py-1 rounded-md bg-secondary/40 hover:bg-secondary/60 transition-colors"
+                            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+                        >
+                            {theme === "dark" ? "☀️" : "🌙"}
+                        </button>
                         <span className="text-sm text-muted-foreground">
                             {user?.username}
                         </span>
@@ -242,8 +251,8 @@ export default function DashboardPage() {
                                         <Badge
                                             variant={party.is_active ? "default" : "secondary"}
                                             className={party.is_active
-                                                ? "bg-green-900/50 text-green-400 border-green-700/50"
-                                                : "bg-red-900/30 text-red-400 border-red-700/50"
+                                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                                : "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30"
                                             }
                                         >
                                             {party.is_active ? "Active" : "Archived"}
@@ -299,21 +308,39 @@ function CoinToggle({
 
 function ShareUrlBanner() {
     const [copied, setCopied] = useState(false);
-    const [url, setUrl] = useState("");
+    const [lanUrl, setLanUrl] = useState("");
 
     useEffect(() => {
-        setUrl(window.location.origin);
+        // Fetch the actual LAN URL from the backend
+        const fetchLanUrl = async () => {
+            try {
+                const res = await fetch(`${getApiBase()}/api/network/lan-url`, {
+                    credentials: "include",
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.lan_url) {
+                        setLanUrl(data.lan_url);
+                        return;
+                    }
+                }
+            } catch {
+                // Backend not reachable — fall back
+            }
+            // Fallback: use current origin (better than nothing)
+            setLanUrl(window.location.origin);
+        };
+        fetchLanUrl();
     }, []);
 
-    if (!url) return null;
+    if (!lanUrl) return null;
 
     const handleCopy = async () => {
         try {
-            await navigator.clipboard.writeText(url);
+            await navigator.clipboard.writeText(lanUrl);
         } catch {
-            // Fallback for non-HTTPS contexts (common on LAN)
             const input = document.createElement("input");
-            input.value = url;
+            input.value = lanUrl;
             document.body.appendChild(input);
             input.select();
             document.execCommand("copy");
@@ -323,10 +350,14 @@ function ShareUrlBanner() {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const isLocalhost = lanUrl.includes("localhost") || lanUrl.includes("127.0.0.1");
+
     return (
         <div className="mb-6 flex items-center gap-3 rounded-lg bg-secondary/20 border border-border/30 px-4 py-3">
             <span className="text-sm text-muted-foreground shrink-0">📡 Share:</span>
-            <code className="text-sm text-gold font-mono truncate flex-1">{url}</code>
+            <code className={`text-sm font-mono truncate flex-1 ${isLocalhost ? "text-muted-foreground" : "text-gold"}`}>
+                {lanUrl}
+            </code>
             <button
                 onClick={handleCopy}
                 className="shrink-0 px-3 py-1 rounded-md text-xs font-medium bg-primary/20 text-gold border border-gold/30 hover:bg-primary/30 transition-all"

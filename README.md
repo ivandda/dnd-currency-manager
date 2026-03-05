@@ -37,10 +37,19 @@ cp .env.example .env
 ### 2. Start the app
 
 ```bash
-docker compose up -d --build
+./start.sh --build -d
 ```
 
-This starts 3 services:
+This auto-detects your LAN IP and starts 3 services:
+
+```
+🌐 Detected LAN IP: 192.168.1.42
+📡 Players connect at: http://192.168.1.42:3000
+```
+
+> You can also run `docker compose up -d --build` directly, but the share banner won't show your LAN IP.
+
+Services:
 
 | Service      | URL                          | Description            |
 |-------------|------------------------------|------------------------|
@@ -84,6 +93,37 @@ For example: `http://192.168.1.42:3000`
 
 > The frontend auto-detects the backend URL from the browser's hostname, so players don't need to configure anything — they just open the link and play.
 
+### 5. Share over the Internet (ngrok)
+
+If players are **not on the same LAN** (e.g., college WiFi with AP isolation, or remote players), you can use [ngrok](https://ngrok.com/) to create a public tunnel:
+
+```bash
+# 1. Install ngrok (macOS)
+brew install ngrok
+
+# Or download from https://ngrok.com/download
+
+# 2. Create a free account and get your auth token
+ngrok config add-authtoken <YOUR_AUTHTOKEN>
+
+# 3. Expose the frontend
+ngrok http 3000
+```
+
+ngrok will give you a public URL like `https://abc123.ngrok-free.app` — share this with your players.
+
+> **Important:** The app auto-detects the backend URL from the browser hostname. When using ngrok, the backend also needs to be tunneled. You can run two ngrok tunnels:
+>
+> ```bash
+> # Terminal 1 — Frontend
+> ngrok http 3000
+>
+> # Terminal 2 — Backend
+> ngrok http 8000
+> ```
+>
+> Then set the `NEXT_PUBLIC_API_URL` environment variable in the frontend to the backend's ngrok URL before starting, or update the backend URL detection in `frontend/lib/api.ts`.
+
 ## Development
 
 ### Run backend tests
@@ -92,6 +132,43 @@ For example: `http://192.168.1.42:3000`
 cd backend
 uv run pytest tests/ -v
 ```
+
+### Database Migrations (Alembic)
+
+Since the database runs inside Docker, all Alembic commands must run **inside the backend container** using `docker compose exec`.
+
+> **Why?** The `DATABASE_URL` uses `db` as the hostname — that's the Docker Compose service name, which only resolves inside the Docker network. Running `alembic` locally will fail with a "could not translate host name" error.
+
+#### Apply pending migrations
+
+```bash
+docker compose exec backend /app/.venv/bin/alembic upgrade head
+```
+
+#### Check current migration status
+
+```bash
+docker compose exec backend /app/.venv/bin/alembic current
+```
+
+#### Generate a new migration after changing a model
+
+```bash
+# 1. Edit a model in backend/app/models/
+# 2. Auto-generate the migration
+docker compose exec backend /app/.venv/bin/alembic revision --autogenerate -m "describe your change"
+
+# 3. Review the generated file in backend/alembic/versions/
+# 4. Apply it
+docker compose exec backend /app/.venv/bin/alembic upgrade head
+```
+
+#### Rollback the last migration
+
+```bash
+docker compose exec backend /app/.venv/bin/alembic downgrade -1
+```
+
 
 ### Run backend locally (without Docker)
 

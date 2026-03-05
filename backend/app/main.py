@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel
 
@@ -61,3 +61,56 @@ app.include_router(sse_router)
 def health_check():
     """Health check endpoint."""
     return {"status": "ok", "app": "D&D Currency Manager"}
+
+
+@app.get("/api/network/lan-url")
+def get_lan_url(request: Request):
+    """Return the shareable LAN URL for other players to connect.
+
+    Detection priority:
+    1. LAN_IP environment variable (user-configured, most reliable)
+    2. Request Host header (works when accessed via LAN IP already)
+    3. UDP socket outbound IP (works outside Docker)
+    """
+    import os
+    import socket
+
+    lan_ip: str | None = None
+
+    # 1. User-configured env var — most reliable since Docker can't
+    #    see the host's real network interfaces
+    env_ip = os.environ.get("LAN_IP", "").strip()
+    if env_ip and env_ip not in ("localhost", "127.0.0.1"):
+        lan_ip = env_ip
+
+    # 2. Use the Host header from the incoming request
+    #    (works when someone already accesses via LAN IP)
+    if not lan_ip:
+        host_header = request.headers.get("host", "")
+        host_part = host_header.split(":")[0]
+        if host_part and host_part not in ("localhost", "127.0.0.1"):
+            lan_ip = host_part
+
+    # 3. UDP socket trick — find the outbound network interface IP.
+    #    Inside Docker this gives the container IP, but outside Docker
+    #    it gives the real LAN IP.
+    if not lan_ip:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                # Use a short timeout so this doesn't block the request
+                # thread for a long OS-level timeout in restricted networks.
+                s.settimeout(0.5)
+                s.connect(("8.8.8.8", 80))
+                candidate = s.getsockname()[0]
+                # Skip Docker-internal IPs (172.x.x.x are often Docker networks)
+                if not candidate.startswith("127."):
+                    lan_ip = candidate
+        except Exception:
+            pass
+
+    if lan_ip:
+        return {"lan_url": f"http://{lan_ip}:3000", "ip": lan_ip}
+
+    return {"lan_url": None, "ip": None}
+
+

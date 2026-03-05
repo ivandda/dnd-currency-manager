@@ -57,6 +57,7 @@ A Full-Stack web application designed to run on a Local Area Network (LAN) that 
   * **Connection:** One SSE connection per authenticated user, scoped to their active party.
   * **Event Types:** `balance_update`, `transaction_new`, `joint_payment_update`, `party_update`.
   * **Reconnection:** Auto-reconnect with exponential backoff on the frontend.
+* **Network Auto-detection:** App includes a backend endpoint (`/api/network/lan-url`) and start script (`start.sh`) to automatically detect the host's actual LAN IP for easy sharing, bypassing Docker networking limitations.
 * **DM Dashboard:** The DM has a real-time overview of every character's wallet and balance in the Party.
 * **P2P Transfers:** Characters can send money to each other.
 * **NPC Spend:** Characters can spend money on NPC purchases (shops, tolls, etc.). Money leaves the economy.
@@ -73,7 +74,7 @@ There are two distinct joint payment flows:
 2. **DM-Initiated Charge:** The DM charges the party: "The tavern charges you 50gp." Money is deducted from each selected player equally.
 
 **Common rules:**
-* **Recipient:** Joint payment money is always a cost — it disappears from the economy (NPC purchase / world charge). It does not go to another character.
+* **Recipient:** Joint payment money is either removed from the economy (NPC purchase/world charge) OR can be directed to a specific **Party Member** (e.g., "Pay the Rogue for lockpicks"). If a member is the receiver, they get credited the full amount when the split is approved.
 * **Acceptance Rule:** Requires 100% acceptance from all involved parties to be executed.
 * **Request States:**
   * *Pending:* Waiting for responses.
@@ -99,11 +100,17 @@ The application is **mobile-responsive** (players will use phones on the LAN).
 
 ## 7. UI & Design Direction
 
-* **Theme:** D&D Beyond-inspired dark theme. Deep charcoal/midnight blue background, D&D red accent (#C53030), muted gold for coin references. Clean and professional.
+* **Theme:** D&D Beyond-inspired styles with a persistent theme toggle (🌙 Dark / ☀️ Light). 
+  * **Dark:** Deep charcoal/midnight blue, red accent, clean and professional.
+  * **Light (Parchment):** Warm cream/parchment backgrounds with rich medieval card styles and distinct contrast.
 * **Typography:** Inter (sans-serif) for body text — optimized for mobile readability. Cinzel (serif) for headings — medieval fantasy feel.
-* **Components:** TailwindCSS + shadcn/ui, customized to fit the dark fantasy theme.
-* **Responsiveness:** Mobile-first design. Players will primarily use phones connected to the LAN. Swipeable tabs, ≥44px touch targets.
-* **Layout:** 4-tab party view: Party (members, settings) | Treasury (unified transfer card) | Splits (joint payments) | History. Sticky balance bar always visible. Current logged-in user filtered from party members list.
+* **Components:** TailwindCSS + shadcn/ui, customized to fit the fantasy theme. Native CSS variables used for theme support.
+* **Responsiveness & Mobile-First:** Players will primarily use phones. Swipeable tabs, ≥44px touch targets. Includes native-feeling features like **Pull-to-Refresh**.
+* **Layout:** 4-tab party view: Party (members, settings) | Treasury (unified transfer card) | Splits (joint payments) | History. 
+  * **Bottom Bar:** Always-visible fixed bottom bar showing character's active coin balance (or DM Badge).
+  * **Interactive Coins:** Tapping coins auto-converts the display to that specific denomination on the fly.
+  * **Animations:** Smooth number-counting component (`requestAnimationFrame`) for balance changes to highlight additions/deductions naturally.
+  * **Empty States:** Themed inline SVGs (swords, chests, scrolls) for empty tabs to prevent blank-screen syndrome.
 * **Transfer Card:** Unified card with 3 modes: Send to member, NPC/Shop purchase, Add to self. Eliminates confusion of multiple separate sections.
 
 ## 8. API Design
@@ -254,6 +261,8 @@ class JointPayment(SQLModel, table=True):
     creator_character_id: Optional[int] = Field(default=None, foreign_key="character.id")
     creator_is_dm: bool = Field(default=False)
     party_id: int = Field(foreign_key="party.id")
+    # Optional receiver (if split is explicitly paying a party member)
+    receiver_character_id: Optional[int] = Field(default=None, foreign_key="character.id")
     total_amount_cp: int
     reason: Optional[str] = Field(default=None)
     status: JointPaymentStatus = Field(default=JointPaymentStatus.PENDING)

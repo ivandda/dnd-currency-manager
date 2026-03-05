@@ -1,7 +1,7 @@
 """Joint payment endpoints: create, accept, reject, cancel, list."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, update
 
 from app.core.currency import coins_to_cp, cp_to_breakdown, split_amount
 from app.core.database import get_session
@@ -81,11 +81,19 @@ def _payment_to_response(
             )
         )
 
+    # Resolve receiver name
+    receiver_name = None
+    if payment.receiver_character_id:
+        receiver_char = session.get(Character, payment.receiver_character_id)
+        receiver_name = receiver_char.name if receiver_char else None
+
     return JointPaymentResponse(
         id=payment.id,
         creator_character_id=payment.creator_character_id,
         creator_name=creator_name,
         creator_is_dm=payment.creator_is_dm,
+        receiver_character_id=payment.receiver_character_id,
+        receiver_name=receiver_name,
         total_amount_cp=payment.total_amount_cp,
         total_amount_display=breakdown.to_display_dict(
             use_platinum=party.use_platinum,
@@ -118,6 +126,21 @@ async def create_joint_payment_as_player(
             detail="Payment amount must be positive",
         )
 
+    # Validate receiver if paying a party member
+    if body.receiver_character_id is not None:
+        receiver = session.get(Character, body.receiver_character_id)
+        if not receiver or receiver.party_id != party.id or not receiver.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Receiver character not found in this party",
+            )
+        # Receiver cannot also be a participant (they receive, not pay)
+        if body.receiver_character_id in body.character_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Receiver cannot also be a participant in the split",
+            )
+
     # Validate all participants exist in the party
     participant_chars = []
     for char_id in body.character_ids:
@@ -146,6 +169,7 @@ async def create_joint_payment_as_player(
         creator_is_dm=False,
         party_id=party.id,
         total_amount_cp=total_cp,
+        receiver_character_id=body.receiver_character_id,
         reason=body.reason,
         status=JointPaymentStatus.PENDING,
     )
@@ -190,6 +214,20 @@ async def create_joint_payment_as_dm(
             detail="Payment amount must be positive",
         )
 
+    # Validate receiver if paying a party member
+    if body.receiver_character_id is not None:
+        receiver = session.get(Character, body.receiver_character_id)
+        if not receiver or receiver.party_id != party.id or not receiver.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Receiver character not found in this party",
+            )
+        if body.receiver_character_id in body.character_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Receiver cannot also be a participant in the split",
+            )
+
     participant_chars = []
     for char_id in body.character_ids:
         char = session.get(Character, char_id)
@@ -214,6 +252,7 @@ async def create_joint_payment_as_dm(
         creator_is_dm=True,
         party_id=party.id,
         total_amount_cp=total_cp,
+        receiver_character_id=body.receiver_character_id,
         reason=body.reason,
         status=JointPaymentStatus.PENDING,
     )
@@ -322,6 +361,21 @@ async def accept_joint_payment(
     all_accepted = all(p.has_accepted for p in all_participants)
 
     if all_accepted:
+        # Optimistic lock: ensure payment is still PENDING before we execute
+        stmt = (
+            update(JointPayment)
+            .where(
+                JointPayment.id == payment.id,
+                JointPayment.status == JointPaymentStatus.PENDING
+            )
+            .values(status=JointPaymentStatus.APPROVED)
+        )
+        result = session.exec(stmt)
+        if result.rowcount == 0:
+            # Another request already executed or cancelled it
+            session.refresh(payment)
+            return _payment_to_response(payment, party, session)
+
         # Execute the payment: deduct from all participants
         for p in all_participants:
             char = session.get(Character, p.character_id)
@@ -349,10 +403,17 @@ async def accept_joint_payment(
                 reason=payment.reason,
                 party_id=party.id,
                 sender_id=char.id,
-                receiver_id=None,  # Money goes to NPC / disappears
+                receiver_id=payment.receiver_character_id,  # None = NPC, or a character
                 joint_payment_id=payment.id,
             )
             session.add(txn)
+
+        # If paying a party member, credit their balance
+        if payment.receiver_character_id:
+            receiver_char = session.get(Character, payment.receiver_character_id)
+            if receiver_char:
+                receiver_char.balance_cp += payment.total_amount_cp
+                session.add(receiver_char)
 
         payment.status = JointPaymentStatus.APPROVED
         session.add(payment)
@@ -364,6 +425,13 @@ async def accept_joint_payment(
             await event_manager.broadcast(party.id, "balance_update", {
                 "character_id": char.id, "balance_cp": char.balance_cp
             })
+        # Broadcast receiver balance update if applicable
+        if payment.receiver_character_id:
+            receiver_char = session.get(Character, payment.receiver_character_id)
+            if receiver_char:
+                await event_manager.broadcast(party.id, "balance_update", {
+                    "character_id": receiver_char.id, "balance_cp": receiver_char.balance_cp
+                })
         await event_manager.broadcast(
             party.id, "joint_payment_update",
             {"payment_id": payment.id, "status": "approved"}
