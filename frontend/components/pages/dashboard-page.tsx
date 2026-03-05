@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
-import { partyApi } from "@/lib/api";
+import { partyApi, getApiBase } from "@/lib/api";
 import type { Party } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -314,7 +314,7 @@ function ShareUrlBanner() {
         // Fetch the actual LAN URL from the backend
         const fetchLanUrl = async () => {
             try {
-                const res = await fetch(`http://${window.location.hostname}:8000/api/network/lan-url`, {
+                const res = await fetch(`${getApiBase()}/api/network/lan-url`, {
                     credentials: "include",
                 });
                 if (res.ok) {

@@ -96,13 +96,15 @@ def get_lan_url(request: Request):
     #    it gives the real LAN IP.
     if not lan_ip:
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            candidate = s.getsockname()[0]
-            s.close()
-            # Skip Docker-internal IPs (172.x.x.x are often Docker networks)
-            if not candidate.startswith("127."):
-                lan_ip = candidate
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                # Use a short timeout so this doesn't block the request
+                # thread for a long OS-level timeout in restricted networks.
+                s.settimeout(0.5)
+                s.connect(("8.8.8.8", 80))
+                candidate = s.getsockname()[0]
+                # Skip Docker-internal IPs (172.x.x.x are often Docker networks)
+                if not candidate.startswith("127."):
+                    lan_ip = candidate
         except Exception:
             pass
 

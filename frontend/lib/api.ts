@@ -5,7 +5,7 @@
 // Auto-detect backend URL from browser hostname for LAN support.
 // When a LAN device opens http://192.168.1.10:3000, the API client
 // will automatically target http://192.168.1.10:8000.
-function getApiBase(): string {
+export function getApiBase(): string {
     if (typeof window !== "undefined") {
         return `http://${window.location.hostname}:8000`;
     }

@@ -113,6 +113,12 @@ export function CoinDisplay({
                     className={`inline-flex items-center gap-0.5 font-semibold ${COIN_COLORS[coin]} ${interactive ? "cursor-pointer hover:opacity-80 transition-opacity" : ""
                         } ${convertTarget === coin ? "underline underline-offset-2" : ""}`}
                     onClick={() => handleCoinClick(coin)}
+                    onKeyDown={(e) => {
+                        if (interactive && (e.key === "Enter" || e.key === " ")) {
+                            e.preventDefault();
+                            handleCoinClick(coin);
+                        }
+                    }}
                     role={interactive ? "button" : undefined}
                     tabIndex={interactive ? 0 : undefined}
                 >

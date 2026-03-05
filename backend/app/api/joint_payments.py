@@ -1,7 +1,7 @@
 """Joint payment endpoints: create, accept, reject, cancel, list."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, update
 
 from app.core.currency import coins_to_cp, cp_to_breakdown, split_amount
 from app.core.database import get_session
@@ -361,6 +361,21 @@ async def accept_joint_payment(
     all_accepted = all(p.has_accepted for p in all_participants)
 
     if all_accepted:
+        # Optimistic lock: ensure payment is still PENDING before we execute
+        stmt = (
+            update(JointPayment)
+            .where(
+                JointPayment.id == payment.id,
+                JointPayment.status == JointPaymentStatus.PENDING
+            )
+            .values(status=JointPaymentStatus.APPROVED)
+        )
+        result = session.exec(stmt)
+        if result.rowcount == 0:
+            # Another request already executed or cancelled it
+            session.refresh(payment)
+            return _payment_to_response(payment, party, session)
+
         # Execute the payment: deduct from all participants
         for p in all_participants:
             char = session.get(Character, p.character_id)
