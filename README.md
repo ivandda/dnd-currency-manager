@@ -37,10 +37,19 @@ cp .env.example .env
 ### 2. Start the app
 
 ```bash
-docker compose up -d --build
+./start.sh --build -d
 ```
 
-This starts 3 services:
+This auto-detects your LAN IP and starts 3 services:
+
+```
+🌐 Detected LAN IP: 192.168.1.42
+📡 Players connect at: http://192.168.1.42:3000
+```
+
+> You can also run `docker compose up -d --build` directly, but the share banner won't show your LAN IP.
+
+Services:
 
 | Service      | URL                          | Description            |
 |-------------|------------------------------|------------------------|
