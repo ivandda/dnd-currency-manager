@@ -10,6 +10,15 @@ from app.core.database import engine
 # Import all models so SQLModel registers them
 import app.models  # noqa: F401
 
+# Import routers
+from app.api.auth import router as auth_router
+from app.api.users import router as users_router
+from app.api.parties import router as parties_router
+from app.api.transfers import router as transfers_router
+from app.api.transactions import router as transactions_router
+from app.api.joint_payments import router as joint_payments_router
+from app.api.sse import router as sse_router
+
 
 settings = get_settings()
 
@@ -28,14 +37,24 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow the frontend to communicate with the backend
+# CORS — allow any origin since this is a LAN-only app.
+# Devices connect via different IPs (localhost, 192.168.x.x, etc.)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL, "http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount API routers
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(parties_router)
+app.include_router(transfers_router)
+app.include_router(transactions_router)
+app.include_router(joint_payments_router)
+app.include_router(sse_router)
 
 
 @app.get("/")

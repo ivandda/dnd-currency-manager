@@ -59,6 +59,8 @@ A Full-Stack web application designed to run on a Local Area Network (LAN) that 
   * **Reconnection:** Auto-reconnect with exponential backoff on the frontend.
 * **DM Dashboard:** The DM has a real-time overview of every character's wallet and balance in the Party.
 * **P2P Transfers:** Characters can send money to each other.
+* **NPC Spend:** Characters can spend money on NPC purchases (shops, tolls, etc.). Money leaves the economy.
+* **Self-Add Funds:** Players can add money to their own wallet (found loot, sold items) without DM approval. All self-adds are recorded in the immutable transaction history.
 * **Looting (DM to Players):** The DM can transfer funds to one or multiple players simultaneously. These funds are generated infinitely (they are not deducted from a DM wallet).
 * **DM God Mode:** The DM can directly add or subtract money from a player's wallet without requiring permission.
 * **Immutability:** Every movement generates an immutable record in the transaction history. An optional reason/note can be attached to any transfer. No one, not even the DM, can alter the transaction history.
@@ -97,9 +99,12 @@ The application is **mobile-responsive** (players will use phones on the LAN).
 
 ## 7. UI & Design Direction
 
-* **Theme:** Medieval fantasy aesthetic. Dark UI with parchment textures, warm tones, fantasy typography. **Not** modern/clean — the app should feel like it belongs in a D&D world.
-* **Components:** TailwindCSS + shadcn/ui, customized to fit the fantasy theme.
-* **Responsiveness:** Mobile-first design. Players will primarily use phones connected to the LAN.
+* **Theme:** D&D Beyond-inspired dark theme. Deep charcoal/midnight blue background, D&D red accent (#C53030), muted gold for coin references. Clean and professional.
+* **Typography:** Inter (sans-serif) for body text — optimized for mobile readability. Cinzel (serif) for headings — medieval fantasy feel.
+* **Components:** TailwindCSS + shadcn/ui, customized to fit the dark fantasy theme.
+* **Responsiveness:** Mobile-first design. Players will primarily use phones connected to the LAN. Swipeable tabs, ≥44px touch targets.
+* **Layout:** 4-tab party view: Party (members, settings) | Treasury (unified transfer card) | Splits (joint payments) | History. Sticky balance bar always visible. Current logged-in user filtered from party members list.
+* **Transfer Card:** Unified card with 3 modes: Send to member, NPC/Shop purchase, Add to self. Eliminates confusion of multiple separate sections.
 
 ## 8. API Design
 
@@ -171,6 +176,8 @@ class TransactionType(str, Enum):
     DM_GRANT = "dm_grant"           # DM gives money (loot)
     DM_DEDUCT = "dm_deduct"         # DM removes money (god mode)
     JOINT_PAYMENT = "joint_payment" # Joint payment deduction
+    SPEND = "spend"                 # Player spends on NPC/shop
+    SELF_ADD = "self_add"           # Player adds money to own wallet
 
 
 class JointPaymentStatus(str, Enum):

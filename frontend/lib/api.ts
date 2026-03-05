@@ -1,0 +1,245 @@
+/* ==============================
+   API Client — handles fetch + JWT token management
+   ============================== */
+
+// Auto-detect backend URL from browser hostname for LAN support.
+// When a LAN device opens http://192.168.1.10:3000, the API client
+// will automatically target http://192.168.1.10:8000.
+function getApiBase(): string {
+    if (typeof window !== "undefined") {
+        return `http://${window.location.hostname}:8000`;
+    }
+    // SSR fallback
+    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+}
+
+
+let accessToken: string | null = null;
+
+export function setAccessToken(token: string | null) {
+    accessToken = token;
+}
+
+export function getAccessToken(): string | null {
+    return accessToken;
+}
+
+class ApiError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+        super(message);
+        this.status = status;
+        this.name = "ApiError";
+    }
+}
+
+async function request<T>(
+    path: string,
+    options: RequestInit = {}
+): Promise<T> {
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(options.headers as Record<string, string>),
+    };
+
+    if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+    }
+
+    const res = await fetch(`${getApiBase()}${path}`, {
+        ...options,
+        headers,
+        credentials: "include", // Send cookies (refresh token)
+    });
+
+    if (!res.ok) {
+        // Try to refresh token on 401
+        if (res.status === 401 && path !== "/api/auth/refresh" && path !== "/api/auth/login") {
+            const refreshed = await tryRefreshToken();
+            if (refreshed) {
+                // Retry the request with new token
+                headers["Authorization"] = `Bearer ${accessToken}`;
+                const retryRes = await fetch(`${getApiBase()}${path}`, {
+                    ...options,
+                    headers,
+                    credentials: "include",
+                });
+                if (retryRes.ok) {
+                    return retryRes.json();
+                }
+            }
+        }
+
+        const body = await res.json().catch(() => ({ detail: "Unknown error" }));
+        throw new ApiError(body.detail || "Request failed", res.status);
+    }
+
+    return res.json();
+}
+
+async function tryRefreshToken(): Promise<boolean> {
+    try {
+        const res = await fetch(`${getApiBase()}/api/auth/refresh`, {
+            method: "POST",
+            credentials: "include",
+        });
+        if (res.ok) {
+            const data = await res.json();
+            accessToken = data.access_token;
+            return true;
+        }
+    } catch {
+        // Refresh failed
+    }
+    return false;
+}
+
+// --- Auth API ---
+
+export const authApi = {
+    register: (username: string, password: string) =>
+        request<{ access_token: string; token_type: string }>("/api/auth/register", {
+            method: "POST",
+            body: JSON.stringify({ username, password }),
+        }),
+
+    login: (username: string, password: string) =>
+        request<{ access_token: string; token_type: string }>("/api/auth/login", {
+            method: "POST",
+            body: JSON.stringify({ username, password }),
+        }),
+
+    refresh: () =>
+        request<{ access_token: string; token_type: string }>("/api/auth/refresh", {
+            method: "POST",
+        }),
+
+    logout: () =>
+        request<{ message: string }>("/api/auth/logout", { method: "POST" }),
+};
+
+// --- User API ---
+
+export const userApi = {
+    getMe: () => request<import("./types").User>("/api/users/me"),
+};
+
+// --- Party API ---
+
+export const partyApi = {
+    create: (name: string, use_gold = true, use_electrum = false, use_platinum = false) =>
+        request<import("./types").Party>("/api/parties", {
+            method: "POST",
+            body: JSON.stringify({ name, use_gold, use_electrum, use_platinum }),
+        }),
+
+    list: () => request<import("./types").Party[]>("/api/parties"),
+
+    getDetail: (code: string) =>
+        request<import("./types").PartyDetail>(`/api/parties/${code}`),
+
+    join: (code: string, character_name: string, character_class: string) =>
+        request<import("./types").CharacterInParty>(`/api/parties/${code}/join`, {
+            method: "POST",
+            body: JSON.stringify({ character_name, character_class }),
+        }),
+
+    leave: (code: string) =>
+        request<{ message: string }>(`/api/parties/${code}/leave`, {
+            method: "POST",
+        }),
+
+    kick: (code: string, character_id: number) =>
+        request<{ message: string }>(`/api/parties/${code}/kick`, {
+            method: "POST",
+            body: JSON.stringify({ character_id }),
+        }),
+
+    archive: (code: string) =>
+        request<import("./types").Party>(`/api/parties/${code}/archive`, {
+            method: "PATCH",
+        }),
+
+    updateCoins: (code: string, config: { use_gold?: boolean; use_electrum?: boolean; use_platinum?: boolean }) =>
+        request<import("./types").Party>(`/api/parties/${code}/coins`, {
+            method: "PATCH",
+            body: JSON.stringify(config),
+        }),
+};
+
+// --- Transfer API ---
+
+export const transferApi = {
+    p2p: (code: string, receiver_id: number, amount: Record<string, number>, reason?: string) =>
+        request<import("./types").TransactionResponse>(`/api/parties/${code}/transfers/p2p`, {
+            method: "POST",
+            body: JSON.stringify({ receiver_id, amount, reason }),
+        }),
+
+    loot: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string) =>
+        request<import("./types").TransactionResponse[]>(`/api/parties/${code}/transfers/loot`, {
+            method: "POST",
+            body: JSON.stringify({ character_ids, amount, reason }),
+        }),
+
+    godMode: (code: string, character_id: number, amount: Record<string, number>, is_deduction: boolean, reason?: string) =>
+        request<import("./types").TransactionResponse>(`/api/parties/${code}/transfers/god-mode`, {
+            method: "POST",
+            body: JSON.stringify({ character_id, amount, is_deduction, reason }),
+        }),
+
+    spend: (code: string, amount: Record<string, number>, reason: string) =>
+        request<import("./types").TransactionResponse>(`/api/parties/${code}/transfers/spend`, {
+            method: "POST",
+            body: JSON.stringify({ amount, reason }),
+        }),
+
+    selfAdd: (code: string, amount: Record<string, number>, reason?: string) =>
+        request<import("./types").TransactionResponse>(`/api/parties/${code}/transfers/self-add`, {
+            method: "POST",
+            body: JSON.stringify({ amount, reason }),
+        }),
+};
+
+// --- Transaction API ---
+
+export const transactionApi = {
+    getHistory: (code: string, page = 1, page_size = 20) =>
+        request<import("./types").TransactionListResponse>(
+            `/api/parties/${code}/transactions?page=${page}&page_size=${page_size}`
+        ),
+};
+
+// --- Joint Payment API ---
+
+export const jointPaymentApi = {
+    create: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string) =>
+        request<import("./types").JointPaymentResponse>(`/api/parties/${code}/joint-payments`, {
+            method: "POST",
+            body: JSON.stringify({ character_ids, amount, reason }),
+        }),
+
+    createDM: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string) =>
+        request<import("./types").JointPaymentResponse>(`/api/parties/${code}/joint-payments/dm`, {
+            method: "POST",
+            body: JSON.stringify({ character_ids, amount, reason }),
+        }),
+
+    list: (code: string) =>
+        request<import("./types").JointPaymentResponse[]>(`/api/parties/${code}/joint-payments`),
+
+    accept: (code: string, paymentId: number) =>
+        request<import("./types").JointPaymentResponse>(`/api/parties/${code}/joint-payments/${paymentId}/accept`, {
+            method: "POST",
+        }),
+
+    reject: (code: string, paymentId: number) =>
+        request<import("./types").JointPaymentResponse>(`/api/parties/${code}/joint-payments/${paymentId}/reject`, {
+            method: "POST",
+        }),
+
+    cancel: (code: string, paymentId: number) =>
+        request<import("./types").JointPaymentResponse>(`/api/parties/${code}/joint-payments/${paymentId}/cancel`, {
+            method: "POST",
+        }),
+};

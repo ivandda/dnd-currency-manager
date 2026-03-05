@@ -2,12 +2,12 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST_AUTH_METHOD: md5
+      POSTGRES_INITDB_ARGS: "--auth-host=md5 --auth-local=trust"
     ports:
       - "5432:5432"
     volumes:
@@ -32,6 +32,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      - backend_venv:/app/.venv # Named volume so deps persist properly
 
   frontend:
     build:
@@ -46,8 +47,11 @@ services:
       - backend
     volumes:
       - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
 
 volumes:
   postgres_data:
+  backend_venv:
+  frontend_node_modules:
+  frontend_next:

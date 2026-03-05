@@ -11,6 +11,8 @@ class TransactionType(str, Enum):
     DM_GRANT = "dm_grant"           # DM gives money (loot)
     DM_DEDUCT = "dm_deduct"         # DM removes money (god mode)
     JOINT_PAYMENT = "joint_payment" # Joint payment deduction
+    SPEND = "spend"                 # Player spends on NPC/shop
+    SELF_ADD = "self_add"           # Player adds money to own wallet
 
 
 class Transaction(SQLModel, table=True):
