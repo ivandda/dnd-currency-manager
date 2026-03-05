@@ -213,16 +213,16 @@ export const transactionApi = {
 // --- Joint Payment API ---
 
 export const jointPaymentApi = {
-    create: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string) =>
+    create: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string, receiver_character_id?: number) =>
         request<import("./types").JointPaymentResponse>(`/api/parties/${code}/joint-payments`, {
             method: "POST",
-            body: JSON.stringify({ character_ids, amount, reason }),
+            body: JSON.stringify({ character_ids, amount, reason, receiver_character_id }),
         }),
 
-    createDM: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string) =>
+    createDM: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string, receiver_character_id?: number) =>
         request<import("./types").JointPaymentResponse>(`/api/parties/${code}/joint-payments/dm`, {
             method: "POST",
-            body: JSON.stringify({ character_ids, amount, reason }),
+            body: JSON.stringify({ character_ids, amount, reason, receiver_character_id }),
         }),
 
     list: (code: string) =>

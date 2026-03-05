@@ -74,6 +74,8 @@ export interface JointPaymentResponse {
     creator_character_id: number | null;
     creator_name: string | null;
     creator_is_dm: boolean;
+    receiver_character_id: number | null;
+    receiver_name: string | null;
     total_amount_cp: number;
     total_amount_display: Record<string, number>;
     reason: string | null;

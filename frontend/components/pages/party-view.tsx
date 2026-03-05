@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { partyApi, transferApi, transactionApi, jointPaymentApi } from "@/lib/api";
 import type {
     PartyDetail,
@@ -39,6 +40,7 @@ const TAB_LABELS: Record<TabId, string> = {
 
 export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     const { user } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const [party, setParty] = useState<PartyDetail | null>(null);
     const [transactions, setTransactions] = useState<TransactionResponse[]>([]);
     const [jointPayments, setJointPayments] = useState<JointPaymentResponse[]>([]);
@@ -48,6 +50,12 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     // Swipe support
     const touchStartX = useRef(0);
     const contentRef = useRef<HTMLDivElement>(null);
+
+    // Pull-to-refresh
+    const [pullDistance, setPullDistance] = useState(0);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const pullStartY = useRef(0);
+    const isPulling = useRef(false);
 
     const isDM = party?.dm_id === user?.id;
     const myCharacter = party?.characters.find(
@@ -89,16 +97,46 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
         }
     });
 
-    // Swipe handling
+    // Swipe handling for tab navigation
     const handleTouchStart = (e: React.TouchEvent) => {
         touchStartX.current = e.touches[0].clientX;
+        // Pull-to-refresh: track vertical start
+        const scrollTop = contentRef.current?.scrollTop ?? 0;
+        if (scrollTop <= 0) {
+            pullStartY.current = e.touches[0].clientY;
+            isPulling.current = true;
+        }
     };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!isPulling.current) return;
+        const dy = e.touches[0].clientY - pullStartY.current;
+        if (dy > 0 && !isRefreshing) {
+            setPullDistance(Math.min(dy * 0.5, 80));
+        }
+    };
+
     const handleTouchEnd = (e: React.TouchEvent) => {
-        const diff = touchStartX.current - e.changedTouches[0].clientX;
-        if (Math.abs(diff) < 60) return;
-        const idx = TABS.indexOf(activeTab);
-        if (diff > 0 && idx < TABS.length - 1) setActiveTab(TABS[idx + 1]);
-        if (diff < 0 && idx > 0) setActiveTab(TABS[idx - 1]);
+        // Horizontal swipe for tab navigation
+        const diffX = touchStartX.current - e.changedTouches[0].clientX;
+        if (Math.abs(diffX) > 60) {
+            const idx = TABS.indexOf(activeTab);
+            if (diffX > 0 && idx < TABS.length - 1) setActiveTab(TABS[idx + 1]);
+            if (diffX < 0 && idx > 0) setActiveTab(TABS[idx - 1]);
+        }
+
+        // Pull-to-refresh
+        if (isPulling.current && pullDistance > 50 && !isRefreshing) {
+            setIsRefreshing(true);
+            loadAll().finally(() => {
+                setIsRefreshing(false);
+                setPullDistance(0);
+                toast.success("Refreshed! 🔄");
+            });
+        } else {
+            setPullDistance(0);
+        }
+        isPulling.current = false;
     };
 
     if (loading || !party) {
@@ -111,17 +149,16 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
 
     const pendingCount = jointPayments.filter((p) => {
         if (p.status !== "pending") return false;
-        if (isDM) return true; // DM sees all pending
+        if (isDM) return true;
         if (!myCharacter) return false;
-        if (p.creator_character_id === myCharacter.id) return true; // Creator sees their pending
-        // Otherwise, only if this character is a participant who hasn't accepted
+        if (p.creator_character_id === myCharacter.id) return true;
         return p.participants.some(
             (pt) => pt.character_id === myCharacter.id && !pt.has_accepted
         );
     }).length;
 
     return (
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-screen flex flex-col pb-16">
             {/* Header */}
             <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
                 <div className="max-w-lg mx-auto px-4 py-2.5 flex items-center justify-between">
@@ -131,27 +168,21 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                         </button>
                         <h1 className="text-base font-bold text-dnd-red truncate">{party.name}</h1>
                     </div>
-                    <CopyBadge text={party.code} />
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={toggleTheme}
+                            className="text-sm px-2 py-1 rounded-md bg-secondary/40 hover:bg-secondary/60 transition-colors"
+                            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+                        >
+                            {theme === "dark" ? "☀️" : "🌙"}
+                        </button>
+                        <CopyBadge text={party.code} />
+                    </div>
                 </div>
             </header>
 
-            {/* Sticky Balance Bar */}
-            {myCharacter && (
-                <div className="border-b border-border/30 bg-card/50 backdrop-blur-sm sticky top-[49px] z-40">
-                    <div className="max-w-lg mx-auto px-4 py-2 flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-xs text-muted-foreground shrink-0">{myCharacter.name}</span>
-                            <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4">
-                                {myCharacter.character_class}
-                            </Badge>
-                        </div>
-                        <CoinDisplay coins={myCharacter.balance_display} size="sm" />
-                    </div>
-                </div>
-            )}
-
             {/* Tab Bar */}
-            <div className="border-b border-border/30 bg-card/30 sticky top-[49px] z-30" style={myCharacter ? { top: "89px" } : {}}>
+            <div className="border-b border-border/30 bg-card/30 sticky top-[49px] z-30">
                 <div className="max-w-lg mx-auto px-2 flex">
                     {TABS.map((tab) => (
                         <button
@@ -176,11 +207,22 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                 </div>
             </div>
 
+            {/* Pull-to-refresh indicator */}
+            {pullDistance > 0 && (
+                <div
+                    className="pull-indicator flex items-center justify-center text-muted-foreground text-xs"
+                    style={{ height: pullDistance, opacity: Math.min(pullDistance / 50, 1) }}
+                >
+                    {pullDistance > 50 ? "Release to refresh ↻" : "Pull to refresh ↓"}
+                </div>
+            )}
+
             {/* Tab Content — swipeable */}
             <main
                 ref={contentRef}
-                className="flex-1 max-w-lg mx-auto w-full px-4 py-4 animate-fade-in"
+                className="flex-1 max-w-lg mx-auto w-full px-4 py-4 animate-fade-in overflow-auto"
                 onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
             >
                 {activeTab === "party" && (
@@ -218,6 +260,36 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                     <HistoryTab transactions={transactions} />
                 )}
             </main>
+
+            {/* Fixed Bottom Balance Bar */}
+            <div className="fixed bottom-0 left-0 right-0 border-t border-border/40 bg-card/90 backdrop-blur-sm z-50">
+                <div className="max-w-lg mx-auto px-4 py-2.5 flex items-center justify-between">
+                    {myCharacter ? (
+                        <>
+                            <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-xs text-muted-foreground shrink-0">{myCharacter.name}</span>
+                                <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4">
+                                    {myCharacter.character_class}
+                                </Badge>
+                            </div>
+                            <CoinDisplay
+                                coins={myCharacter.balance_display}
+                                balanceCp={myCharacter.balance_cp}
+                                enabledCoins={enabledCoins}
+                                size="sm"
+                                interactive
+                                animated
+                            />
+                        </>
+                    ) : isDM ? (
+                        <div className="flex items-center gap-2 w-full justify-center">
+                            <span className="text-gold text-sm font-semibold">👑 Dungeon Master</span>
+                        </div>
+                    ) : (
+                        <span className="text-xs text-muted-foreground">Not in this party</span>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
@@ -247,6 +319,44 @@ function CopyBadge({ text }: { text: string }) {
 }
 
 /* ============================================
+   D&D-Themed Empty State Icons (inline SVGs)
+   ============================================ */
+
+function EmptyState({ icon, message }: { icon: "shield" | "scroll" | "handshake" | "chest"; message: string }) {
+    return (
+        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground animate-fade-in">
+            <div className="w-16 h-16 mb-3 opacity-40">
+                {icon === "shield" && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <path d="M12 8v4M12 16h.01" />
+                    </svg>
+                )}
+                {icon === "scroll" && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M8 21h12a2 2 0 002-2v-2H10v2a2 2 0 01-2 2zm0 0a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2v12" />
+                        <path d="M12 7h6M12 11h6M12 15h2" />
+                    </svg>
+                )}
+                {icon === "handshake" && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20.42 4.58a5.4 5.4 0 00-7.65 0l-.77.78-.77-.78a5.4 5.4 0 00-7.65 0C1.46 6.7 1.33 10.28 4 13l8 8 8-8c2.67-2.72 2.54-6.3.42-8.42z" />
+                    </svg>
+                )}
+                {icon === "chest" && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" />
+                        <path d="M16 7V5a4 4 0 00-8 0v2" />
+                        <circle cx="12" cy="15" r="2" />
+                    </svg>
+                )}
+            </div>
+            <p className="text-sm text-center max-w-48">{message}</p>
+        </div>
+    );
+}
+
+/* ============================================
    PARTY TAB
    ============================================ */
 
@@ -256,7 +366,6 @@ function PartyTab({
     party: PartyDetail; isDM: boolean; myCharacter: CharacterInParty | undefined;
     partyCode: string; onRefresh: () => void; onBack: () => void;
 }) {
-    // Filter out the logged-in user from party members
     const otherMembers = party.characters.filter(
         (c) => c.is_active && c.id !== myCharacter?.id
     );
@@ -295,9 +404,7 @@ function PartyTab({
                     </div>
                 ))}
                 {otherMembers.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-6">
-                        No other members yet — share the party code!
-                    </p>
+                    <EmptyState icon="shield" message="No adventurers yet — share the party code!" />
                 )}
             </div>
 
@@ -612,6 +719,8 @@ function SplitsTab({
     const [selectedChars, setSelectedChars] = useState<number[]>([]);
     const [amount, setAmount] = useState<Record<string, number>>({});
     const [reason, setReason] = useState("");
+    const [receiverId, setReceiverId] = useState<number | null>(null);
+    const [payTarget, setPayTarget] = useState<"npc" | "member">("npc");
 
     const pending = jointPayments.filter((p) => p.status === "pending");
     const past = jointPayments.filter((p) => p.status !== "pending");
@@ -620,14 +729,16 @@ function SplitsTab({
         e.preventDefault();
         if (selectedChars.length === 0) return toast.error("Select participants");
         if (Object.keys(amount).length === 0) return toast.error("Enter an amount");
+        if (payTarget === "member" && !receiverId) return toast.error("Select who receives the money");
         try {
+            const rcvId = payTarget === "member" ? receiverId ?? undefined : undefined;
             if (isDM) {
-                await jointPaymentApi.createDM(partyCode, selectedChars, amount, reason || undefined);
+                await jointPaymentApi.createDM(partyCode, selectedChars, amount, reason || undefined, rcvId);
             } else {
-                await jointPaymentApi.create(partyCode, selectedChars, amount, reason || undefined);
+                await jointPaymentApi.create(partyCode, selectedChars, amount, reason || undefined, rcvId);
             }
             toast.success("Split created!");
-            setCreateOpen(false); setSelectedChars([]); setAmount({}); setReason("");
+            setCreateOpen(false); setSelectedChars([]); setAmount({}); setReason(""); setReceiverId(null);
             onRefresh();
         } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Failed"); }
     };
@@ -640,6 +751,11 @@ function SplitsTab({
             onRefresh();
         } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Failed"); }
     };
+
+    // Characters who can be recipients (not in the selected participant list)
+    const availableReceivers = characters.filter(
+        (c) => !selectedChars.includes(c.id)
+    );
 
     return (
         <div className="space-y-4">
@@ -655,25 +771,61 @@ function SplitsTab({
                         <DialogTitle className="text-dnd-red">Create Split Payment</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleCreate} className="space-y-4">
+                        {/* Pay to NPC or Member toggle */}
+                        <div className="flex gap-1.5">
+                            <button type="button" onClick={() => { setPayTarget("npc"); setReceiverId(null); }}
+                                className={`flex-1 py-2 rounded-md text-xs font-medium transition-all ${payTarget === "npc" ? "bg-primary/20 text-dnd-red border border-dnd-red/30" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
+                                🛒 Pay NPC
+                            </button>
+                            <button type="button" onClick={() => setPayTarget("member")}
+                                className={`flex-1 py-2 rounded-md text-xs font-medium transition-all ${payTarget === "member" ? "bg-primary/20 text-dnd-red border border-dnd-red/30" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
+                                💱 Pay Member
+                            </button>
+                        </div>
+
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Participants</Label>
+                            <Label className="text-xs">Participants (who pays)</Label>
                             <div className="flex flex-wrap gap-1.5">
                                 {characters.map((c) => (
                                     <button key={c.id} type="button"
-                                        onClick={() => setSelectedChars((p) => p.includes(c.id) ? p.filter((x) => x !== c.id) : [...p, c.id])}
+                                        onClick={() => {
+                                            setSelectedChars((p) => p.includes(c.id) ? p.filter((x) => x !== c.id) : [...p, c.id]);
+                                            // If this character was the receiver, clear them
+                                            if (receiverId === c.id) setReceiverId(null);
+                                        }}
                                         className={`px-3 py-2 rounded-md text-xs transition-all ${selectedChars.includes(c.id) ? "bg-primary/20 text-dnd-red border border-dnd-red/30" : "bg-secondary/30 text-muted-foreground"}`}>
                                         {c.name}
                                     </button>
                                 ))}
                             </div>
                         </div>
+
+                        {/* Receiver selector (pay member only) */}
+                        {payTarget === "member" && (
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Recipient (who receives)</Label>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {availableReceivers.map((c) => (
+                                        <button key={c.id} type="button"
+                                            onClick={() => setReceiverId(c.id)}
+                                            className={`px-3 py-2 rounded-md text-xs transition-all ${receiverId === c.id ? "bg-green-900/30 text-green-400 border border-green-700/50" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
+                                            {c.name}
+                                        </button>
+                                    ))}
+                                    {availableReceivers.length === 0 && (
+                                        <p className="text-xs text-muted-foreground py-1">Select participants first</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="space-y-1.5">
                             <Label className="text-xs">Total (split equally)</Label>
                             <CoinInput enabledCoins={enabledCoins} value={amount} onChange={setAmount} />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Reason</Label>
-                            <Input placeholder="Tavern bill..." value={reason}
+                            <Input placeholder={payTarget === "member" ? "Pooling money for..." : "Tavern bill..."} value={reason}
                                 onChange={(e) => setReason(e.target.value)}
                                 className="bg-secondary/20 border-border/30 h-10 text-sm" />
                         </div>
@@ -693,7 +845,7 @@ function SplitsTab({
                     ))}
                 </div>
             ) : (
-                <p className="text-sm text-muted-foreground text-center py-6">No pending split payments</p>
+                <EmptyState icon="handshake" message="No deals on the table — create a split to share costs!" />
             )}
 
             {/* Past */}
@@ -724,6 +876,9 @@ function SplitCard({
     payment: JointPaymentResponse; myCharacter: CharacterInParty | undefined;
     isDM: boolean; onAction: (id: number, a: "accept" | "reject" | "cancel") => void;
 }) {
+    const isParticipant = myCharacter && payment.participants.some(
+        (p) => p.character_id === myCharacter.id
+    );
     const needsMyAction = myCharacter && payment.participants.some(
         (p) => p.character_id === myCharacter.id && !p.has_accepted
     );
@@ -731,16 +886,24 @@ function SplitCard({
         (myCharacter && payment.creator_character_id === myCharacter.id);
 
     return (
-        <Card className="card-medieval border-yellow-700/20">
+        <Card className={`card-medieval border-yellow-700/20 ${!isParticipant && !isDM ? "opacity-50" : ""}`}>
             <CardContent className="py-3 space-y-2">
                 <div className="flex items-start justify-between">
                     <div>
                         <CoinDisplay coins={payment.total_amount_display} size="sm" />
                         {payment.reason && <p className="text-xs text-muted-foreground italic mt-0.5">{payment.reason}</p>}
                         <p className="text-[10px] text-muted-foreground mt-0.5">by {payment.creator_name || "DM"}</p>
+                        {payment.receiver_name && (
+                            <p className="text-[10px] text-green-400 mt-0.5">→ pays {payment.receiver_name}</p>
+                        )}
                     </div>
                     <Badge className="bg-yellow-900/20 text-yellow-400 border-yellow-700/30 text-[10px]">Pending</Badge>
                 </div>
+
+                {/* Non-participant notice */}
+                {!isParticipant && !isDM && (
+                    <p className="text-[10px] text-muted-foreground italic">You are not part of this split</p>
+                )}
 
                 <div className="space-y-1">
                     {payment.participants.map((p) => (
@@ -787,7 +950,7 @@ function HistoryTab({ transactions }: { transactions: TransactionResponse[] }) {
     return (
         <ScrollArea className="h-[calc(100vh-200px)]">
             {transactions.length === 0 ? (
-                <p className="text-center text-muted-foreground py-12 text-sm">No transactions yet</p>
+                <EmptyState icon="scroll" message="No tales to tell yet — make your first transaction!" />
             ) : (
                 <div className="space-y-1">
                     {transactions.map((txn) => {
