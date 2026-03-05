@@ -1,4 +1,6 @@
-![D&D Currency Manager](docs/imgs/coins_image.png)
+<p align="center">
+  <img src="docs/imgs/coins_image.png" alt="D&D Currency Manager" width="200">
+</p>
 
 # ⚔️ D&D Currency Manager — LAN Party
 
