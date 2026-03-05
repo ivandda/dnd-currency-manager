@@ -14,6 +14,8 @@ class JointPaymentCreate(BaseModel):
         description="Total coins to split, e.g. {'gp': 100}"
     )
     reason: Optional[str] = Field(default=None, max_length=500)
+    # When set, pooled money goes to this character instead of disappearing
+    receiver_character_id: Optional[int] = None
 
 
 class JointPaymentAction(BaseModel):
@@ -39,6 +41,8 @@ class JointPaymentResponse(BaseModel):
     creator_character_id: Optional[int]
     creator_name: Optional[str] = None
     creator_is_dm: bool
+    receiver_character_id: Optional[int] = None
+    receiver_name: Optional[str] = None
     total_amount_cp: int
     total_amount_display: dict[str, int] = {}
     reason: Optional[str]
