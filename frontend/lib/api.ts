@@ -190,10 +190,10 @@ export const transferApi = {
             body: JSON.stringify({ receiver_id, amount, reason }),
         }),
 
-    loot: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string) =>
+    loot: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string, is_deduction = false) =>
         request<import("./types").TransactionResponse[]>(`/api/parties/${code}/transfers/loot`, {
             method: "POST",
-            body: JSON.stringify({ character_ids, amount, reason }),
+            body: JSON.stringify({ character_ids, amount, reason, is_deduction }),
         }),
 
     godMode: (code: string, character_id: number, amount: Record<string, number>, is_deduction: boolean, reason?: string) =>

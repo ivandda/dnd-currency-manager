@@ -21,8 +21,9 @@ class DMLootRequest(BaseModel):
 
     character_ids: list[int] = Field(min_length=1)
     amount: dict[str, int] = Field(
-        description="Coins to grant, e.g. {'gp': 10}"
+        description="Coins to grant/deduct in total, e.g. {'gp': 10}"
     )
+    is_deduction: bool = False
     reason: Optional[str] = Field(default=None, max_length=500)
 
 

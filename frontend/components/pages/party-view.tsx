@@ -164,7 +164,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     return (
         <div className="h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden">
             {/* Header */}
-            <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm shrink-0 z-50">
+            <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm shrink-0 z-50 flex flex-col">
                 <div className="max-w-[1200px] mx-auto w-full px-4 py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                         <button onClick={onBack} className="text-muted-foreground hover:text-foreground text-sm shrink-0 flex items-center gap-1">
@@ -175,12 +175,42 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={toggleTheme}
-                            className="text-sm px-2 py-1.5 rounded-md bg-secondary/40 hover:bg-secondary/60 transition-colors flex items-center justify-center"
+                            className="text-sm px-2 py-1.5 rounded-md bg-secondary/40 hover:bg-secondary/60 transition-colors flex items-center justify-center shrink-0"
                             title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
                         >
                             {theme === "dark" ? <span className="text-lg leading-none">☀️</span> : <span className="text-lg leading-none">🌙</span>}
                         </button>
                         <CopyBadge text={party.code} />
+                    </div>
+                </div>
+
+                {/* Identity / Balance Bar (Moved from bottom) */}
+                <div className="bg-secondary/10 border-t border-border/20">
+                    <div className="max-w-[1200px] mx-auto w-full px-4 py-2 flex items-center justify-between">
+                        {myCharacter ? (
+                            <>
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-xs font-semibold text-foreground shrink-0">{myCharacter.name}</span>
+                                    <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4 bg-background/50">
+                                        {myCharacter.character_class}
+                                    </Badge>
+                                </div>
+                                <CoinDisplay
+                                    coins={myCharacter.balance_display}
+                                    balanceCp={myCharacter.balance_cp}
+                                    enabledCoins={enabledCoins}
+                                    size="sm"
+                                    interactive
+                                    animated
+                                />
+                            </>
+                        ) : isDM ? (
+                            <div className="flex items-center gap-2 w-full justify-center">
+                                <span className="text-gold text-xs font-semibold flex items-center gap-1.5"><Crown className="w-4 h-4" /> Dungeon Master</span>
+                            </div>
+                        ) : (
+                            <span className="text-xs text-muted-foreground">Not in this party</span>
+                        )}
                     </div>
                 </div>
             </header>
@@ -222,7 +252,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
 
                 {/* --- LEFT SIDEBAR: PARTY INFO (Desktop persistent, Mobile activeTab only) --- */}
                 <aside className={`${activeTab === "party" ? "flex" : "hidden"} md:flex flex-col w-full md:w-80 lg:w-96 shrink-0 md:border-r border-border/30 bg-card/10 overflow-hidden relative`}>
-                    <div className="flex-1 overflow-y-auto px-4 py-4 md:py-6 pb-20 md:pb-6">
+                    <div className="flex-1 overflow-y-auto px-4 py-4 md:py-6 pb-6 mt-1.5">
                         <PartyTab
                             party={party}
                             isDM={isDM}
@@ -288,7 +318,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                     {/* Scrollable Content Container */}
                     <div className="flex-1 overflow-y-auto w-full relative">
                         {/* Tab Content Wrapper */}
-                        <div className="max-w-2xl mx-auto w-full px-4 py-4 md:py-6 pb-24 md:pb-6 animate-fade-in">
+                        <div className="max-w-2xl mx-auto w-full px-4 py-4 md:py-6 pb-6 animate-fade-in">
                             {(activeTab === "treasury" || (activeTab === "party" && window.innerWidth >= 768)) && (
                                 <TreasuryTab
                                     party={party}
@@ -316,36 +346,6 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                         </div>
                     </div>
                 </main>
-            </div>
-
-            {/* Fixed Bottom Balance Bar */}
-            <div className="fixed bottom-0 left-0 right-0 border-t border-border/40 bg-card/90 backdrop-blur-md z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
-                <div className="max-w-[1200px] mx-auto w-full px-4 py-3 flex items-center justify-between">
-                    {myCharacter ? (
-                        <>
-                            <div className="flex items-center gap-2 min-w-0">
-                                <span className="text-xs text-muted-foreground shrink-0">{myCharacter.name}</span>
-                                <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4">
-                                    {myCharacter.character_class}
-                                </Badge>
-                            </div>
-                            <CoinDisplay
-                                coins={myCharacter.balance_display}
-                                balanceCp={myCharacter.balance_cp}
-                                enabledCoins={enabledCoins}
-                                size="sm"
-                                interactive
-                                animated
-                            />
-                        </>
-                    ) : isDM ? (
-                        <div className="flex items-center gap-2 w-full justify-center">
-                            <span className="text-gold text-sm font-semibold flex items-center gap-1.5"><Crown className="w-4 h-4" /> Dungeon Master</span>
-                        </div>
-                    ) : (
-                        <span className="text-xs text-muted-foreground">Not in this party</span>
-                    )}
-                </div>
             </div>
         </div>
     );
@@ -633,30 +633,30 @@ function UnifiedTransferCard({
                     {actionType === "pay" && (
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recipient</Label>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <div className="flex flex-wrap gap-1.5">
                                 <button
                                     type="button"
                                     onClick={() => setReceiverType("npc")}
-                                    className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-md transition-all border ${receiverType === "npc"
-                                        ? "bg-primary/10 text-dnd-red border-dnd-red/30 shadow-sm"
+                                    className={`px-3 py-2 rounded-md text-xs transition-all border flex items-center gap-1.5 ${receiverType === "npc"
+                                        ? "bg-primary/20 text-dnd-red border-dnd-red/30 shadow-sm"
                                         : "bg-secondary/20 text-muted-foreground border-transparent hover:border-border/50 hover:bg-secondary/40"
                                         }`}
                                 >
-                                    <Store className="w-5 h-5 mb-1" />
-                                    <span className="text-xs font-medium text-center">NPC / Shop</span>
+                                    <Store className="w-3.5 h-3.5 opacity-70" />
+                                    NPC / Shop
                                 </button>
                                 {otherCharacters.map((c) => (
                                     <button
                                         key={c.id}
                                         type="button"
                                         onClick={() => setReceiverType(c.id)}
-                                        className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-md transition-all border ${receiverType === c.id
-                                            ? "bg-primary/10 text-dnd-red border-dnd-red/30 shadow-sm"
+                                        className={`px-3 py-2 rounded-md text-xs transition-all border flex items-center gap-1.5 ${receiverType === c.id
+                                            ? "bg-primary/20 text-dnd-red border-dnd-red/30 shadow-sm"
                                             : "bg-secondary/20 text-muted-foreground border-transparent hover:border-border/50 hover:bg-secondary/40"
                                             }`}
                                     >
-                                        <Shield className="w-5 h-5 mb-1 opacity-70" />
-                                        <span className="text-xs font-medium text-center truncate w-full">{c.name}</span>
+                                        <Shield className="w-3.5 h-3.5 opacity-70" />
+                                        {c.name}
                                     </button>
                                 ))}
                             </div>
@@ -717,7 +717,7 @@ function DMControls({
     const [selectedChars, setSelectedChars] = useState<number[]>([]);
     const [amount, setAmount] = useState<Record<string, number>>({});
     const [reason, setReason] = useState("");
-    const [mode, setMode] = useState<"loot" | "add" | "deduct">("loot");
+    const [mode, setMode] = useState<"add" | "deduct">("add");
     const [sending, setSending] = useState(false);
 
     const toggleChar = (id: number) =>
@@ -729,14 +729,27 @@ function DMControls({
         if (Object.keys(amount).length === 0) return toast.error("Enter an amount");
         setSending(true);
         try {
-            if (mode === "loot") {
+            // Always treat the amount as the TOTAL to be divided among selected.
+            // Note: Since God Mode traditionally did "each", we either need backend support for "total" division
+            // or we calculate the "per player" amount here on the frontend and send it out. 
+            // The division logic is standard: calculate total value and split. But wait! Since coins are distinct types (e.g. 5 gold, 1 silver), dividing them perfectly per-player locally can be messy algorithmically vs just sending it to a backend endpoint designed to divide it.
+            // Wait, does `transferApi.loot` divide it equally? Let's check `transferApi.loot`: `loot(partyCode, participants, amount, reason)` -> `POST /api/parties/${partyCode}/loot`.
+            if (mode === "add") {
                 await transferApi.loot(partyCode, selectedChars, amount, reason || undefined);
-                toast.success("Loot distributed!");
+                toast.success("Funds added and divided equally!");
             } else {
-                for (const id of selectedChars) {
-                    await transferApi.godMode(partyCode, id, amount, mode === "deduct", reason || undefined);
-                }
-                toast.success(mode === "deduct" ? "Funds deducted" : "Funds added");
+                // For direct deductions, we need a similar path, or handle division if `loot` only adds.
+                // Let's rely on standard backend calls. Wait, `loot` is essentially "distribute evenly".
+                // If it must divide a deduction, does the backend support negative amounts in loot? Or should we use `godMode` taking the divided amounts per character?
+
+                // For now, let's call godMode iterably with divided amount, OR use the `loot` endpoint if we change the backend.
+                // It's safer to use godMode per player if the backend `loot` doesn't do negative.
+                // But the user requested "the total selected is the TOTAL not the each".
+                // If the user selects 5 gold to Add between 2 players, they each get 2 gold 5 silver (if `loot` handles standard exchange rates) or standard division. 
+                // Let's implement the `total -> divided` logic. Since the user asked to change backend/tests if needed, we'll update the backend to ensure `loot` works as "add total" and we might need an endpoint for "deduct total", or we'll update the existing backend.
+
+                await transferApi.loot(partyCode, selectedChars, amount, reason || undefined, mode === "deduct");
+                toast.success(mode === "deduct" ? "Total funds deducted equally!" : "Total funds added equally!");
             }
             setSelectedChars([]); setAmount({}); setReason(""); onDone();
         } catch (err: unknown) {
@@ -763,8 +776,7 @@ function DMControls({
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action Type</Label>
                         <div className="flex gap-1.5 bg-secondary/10 p-1 rounded-lg border border-border/20 overflow-x-auto pb-2 sm:pb-1">
                             {([
-                                ["loot", "Distribute Loot", CircleDollarSign, "text-emerald-500"],
-                                ["add", "Add (God Mode)", Plus, "text-violet-500"],
+                                ["add", "Add (Distribute)", Plus, "text-emerald-500"],
                                 ["deduct", "Deduct", Minus, "text-red-500"]
                             ] as const).map(([key, label, Icon, colorClass]) => (
                                 <button
@@ -803,7 +815,7 @@ function DMControls({
 
                     {/* Amount */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amount {mode === "loot" && "(each)"}</Label>
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Amount</Label>
                         <CoinInput enabledCoins={enabledCoins} value={amount} onChange={setAmount} />
                     </div>
 
@@ -816,7 +828,7 @@ function DMControls({
                     </div>
 
                     <Button type="submit" className={`w-full h-12 font-semibold text-base transition-transform hover:scale-[1.02] active:scale-100 flex items-center justify-center gap-2 ${mode === "deduct" ? "bg-destructive text-white hover:bg-destructive/90" : "bg-primary text-primary-foreground hover:bg-primary/90"}`} disabled={sending}>
-                        {sending ? "Processing..." : mode === "loot" ? <><CircleDollarSign className="w-5 h-5" /> Distribute Loot</> : mode === "deduct" ? <><Minus className="w-5 h-5" /> Deduct Funds</> : <><Plus className="w-5 h-5" /> Add Funds</>}
+                        {sending ? "Processing..." : mode === "deduct" ? <><Minus className="w-5 h-5" /> Deduct Total Equaly</> : <><Plus className="w-5 h-5" /> Add Total Equaly</>}
                     </Button>
                 </form>
             </CardContent>

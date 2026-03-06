@@ -146,7 +146,7 @@ class TestDMLoot:
         assert data[0]["sender_id"] is None  # DM = no sender
 
         session.refresh(test_character)
-        assert test_character.balance_cp == 15000  # 10000 + 5000
+        assert test_character.balance_cp == 15000  # 10000 + 5000 (5000 / 1 selected)
 
     def test_loot_multiple_players(
         self,
@@ -171,8 +171,8 @@ class TestDMLoot:
 
         session.refresh(test_character)
         session.refresh(second_character)
-        assert test_character.balance_cp == 12500  # +2500 each
-        assert second_character.balance_cp == 7500
+        assert test_character.balance_cp == 11250  # +1250 each (2500 total / 2)
+        assert second_character.balance_cp == 6250  # +1250 each (5000 + 1250)
 
     def test_loot_non_dm_forbidden(
         self,

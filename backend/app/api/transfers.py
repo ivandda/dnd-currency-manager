@@ -146,20 +146,36 @@ async def dm_loot(
     dm_user: User = Depends(require_dm),
     session: Session = Depends(get_session),
 ):
-    """DM grants money to one or more characters (infinite source)."""
+    """DM grants or deducts money evenly among characters from an infinite source."""
     try:
-        amount_cp = coins_to_cp(**body.amount)
+        total_amount_cp = coins_to_cp(**body.amount)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    if amount_cp <= 0:
+    if total_amount_cp <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Loot amount must be positive",
+            detail="Amount must be positive",
         )
 
-    transactions = []
+    if not body.character_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Must select at least one character",
+        )
 
+    # Split the total amount equally among all selected characters
+    # If it doesn't divide perfectly, the remainder is lost (standard integer division)
+    split_amount_cp = total_amount_cp // len(body.character_ids)
+
+    if split_amount_cp <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Amount is too small to split among the selected characters.",
+        )
+
+    # First pass: check if all characters exist, are active, and have sufficient funds if deducting
+    characters_to_update = []
     for char_id in body.character_ids:
         character = session.get(Character, char_id)
         if not character or character.party_id != party.id or not character.is_active:
@@ -167,12 +183,27 @@ async def dm_loot(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Character {char_id} not found in this party",
             )
+        
+        if body.is_deduction and character.balance_cp < split_amount_cp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Character {character.name} does not have enough funds for this deduction. They need {split_amount_cp} CP but have {character.balance_cp} CP.",
+            )
+        characters_to_update.append(character)
 
-        character.balance_cp += amount_cp
+    transactions = []
+
+    for character in characters_to_update:
+        if body.is_deduction:
+            character.balance_cp -= split_amount_cp
+            txn_type = TransactionType.DM_DEDUCT
+        else:
+            character.balance_cp += split_amount_cp
+            txn_type = TransactionType.DM_GRANT
 
         txn = Transaction(
-            transaction_type=TransactionType.DM_GRANT,
-            amount_cp=amount_cp,
+            transaction_type=txn_type,
+            amount_cp=split_amount_cp,
             reason=body.reason,
             party_id=party.id,
             sender_id=None,  # DM = infinite source
