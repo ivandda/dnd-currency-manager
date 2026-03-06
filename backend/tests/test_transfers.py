@@ -118,6 +118,106 @@ class TestP2PTransfer:
         assert response.json()["amount_cp"] == 153  # 100 + 50 + 3
 
 
+class TestDistribute:
+    """Test character distribution to multiple recipients."""
+
+    def test_distribute_to_characters_only(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+        second_character: Character,
+        test_dm: User,
+        session: Session,
+    ):
+        # Add another character to the party
+        third_char = Character(
+            name="Gimli",
+            character_class="Fighter",
+            party_id=test_party.id,
+            user_id=test_dm.id,
+            balance_cp=1000,
+        )
+        session.add(third_char)
+        session.commit()
+        session.refresh(third_char)
+
+        response = client.post(
+            f"/api/parties/{test_party.code}/transfers/distribute",
+            json={
+                "character_ids": [second_character.id, third_char.id],
+                "include_npc": False,
+                "amount": {"gp": 30},
+                "reason": "Splitting the loot",
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data) == 2
+        assert data[0]["amount_cp"] == 1500  # 3000 / 2
+        assert data[1]["amount_cp"] == 1500
+
+        session.refresh(test_character)
+        session.refresh(second_character)
+        session.refresh(third_char)
+        assert test_character.balance_cp == 7000  # 10000 - 3000
+        assert second_character.balance_cp == 6500  # 5000 + 1500
+        assert third_char.balance_cp == 2500  # 1000 + 1500
+
+    def test_distribute_including_npc(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+        second_character: Character,
+        session: Session,
+    ):
+        response = client.post(
+            f"/api/parties/{test_party.code}/transfers/distribute",
+            json={
+                "character_ids": [second_character.id],
+                "include_npc": True,
+                "amount": {"gp": 20},
+                "reason": "Buying drinks for us and the barkeep",
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data) == 2  # One transfer, one spend
+        assert data[0]["transaction_type"] == "transfer"
+        assert data[1]["transaction_type"] == "spend"
+        assert data[0]["amount_cp"] == 1000  # 2000 / 2
+        assert data[1]["amount_cp"] == 1000
+
+        session.refresh(test_character)
+        session.refresh(second_character)
+        assert test_character.balance_cp == 8000  # 10000 - 2000
+        assert second_character.balance_cp == 6000  # 5000 + 1000
+
+    def test_distribute_insufficient_funds(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+        second_character: Character,
+    ):
+        response = client.post(
+            f"/api/parties/{test_party.code}/transfers/distribute",
+            json={
+                "character_ids": [second_character.id],
+                "amount": {"gp": 200},
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 400
+        assert "Insufficient funds" in response.json()["detail"]
+
+
 class TestDMLoot:
     """Test DM granting money to players."""
 

@@ -16,6 +16,17 @@ class TransferRequest(BaseModel):
     reason: Optional[str] = Field(default=None, max_length=500)
 
 
+class DistributeRequest(BaseModel):
+    """Player distributes money to one or more recipients (characters and/or NPC)."""
+
+    character_ids: list[int] = Field(default_factory=list)
+    include_npc: bool = False
+    amount: dict[str, int] = Field(
+        description="Total coins to distribute, e.g. {'gp': 10}"
+    )
+    reason: Optional[str] = Field(default=None, max_length=500)
+
+
 class DMLootRequest(BaseModel):
     """DM loot: grant money to one or more characters."""
 

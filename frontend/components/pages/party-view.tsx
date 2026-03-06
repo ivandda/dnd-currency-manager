@@ -570,36 +570,52 @@ function UnifiedTransferCard({
     partyCode: string; myCharacter: CharacterInParty;
     otherCharacters: CharacterInParty[]; enabledCoins: CoinType[]; onDone: () => void;
 }) {
-    // "pay" covers both sending to a party member and paying an NPC
+    // "pay" covers sending to party member(s) and/or paying an NPC
     // "receive" covers finding gold / adding to your own balance
     const [actionType, setActionType] = useState<"pay" | "receive">("pay");
-    const [receiverType, setReceiverType] = useState<"npc" | number | null>(null);
+    const [selectedReceiverIds, setSelectedReceiverIds] = useState<number[]>([]);
+    const [includeNpc, setIncludeNpc] = useState(false);
     const [amount, setAmount] = useState<Record<string, number>>({});
     const [reason, setReason] = useState("");
     const [sending, setSending] = useState(false);
+
+    const toggleReceiver = (id: number) => {
+        setSelectedReceiverIds(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (Object.keys(amount).length === 0) return toast.error("Enter an amount");
 
-        if (actionType === "pay" && !receiverType) return toast.error("Select a recipient");
-        if (receiverType === "npc" && !reason.trim()) return toast.error("Enter what you're buying");
+        if (actionType === "pay" && selectedReceiverIds.length === 0 && !includeNpc) {
+            return toast.error("Select at least one recipient");
+        }
+        if (includeNpc && !reason.trim()) return toast.error("Enter what you're buying");
 
         setSending(true);
         try {
             if (actionType === "pay") {
-                if (receiverType === "npc") {
+                if (selectedReceiverIds.length === 0 && includeNpc) {
+                    // Just NPC
                     await transferApi.spend(partyCode, amount, reason);
                     toast.success("Purchase complete!");
-                } else {
-                    await transferApi.p2p(partyCode, receiverType as number, amount, reason || undefined);
+                } else if (selectedReceiverIds.length === 1 && !includeNpc) {
+                    // Single person P2P
+                    await transferApi.p2p(partyCode, selectedReceiverIds[0], amount, reason || undefined);
                     toast.success("Transfer complete!");
+                } else {
+                    // Multiple recipients or Multi + NPC
+                    await transferApi.distribute(partyCode, selectedReceiverIds, includeNpc, amount, reason || undefined);
+                    toast.success("Distribution complete!");
                 }
             } else {
                 await transferApi.selfAdd(partyCode, amount, reason || undefined);
                 toast.success("Funds added!");
             }
-            setReceiverType(null);
+            setSelectedReceiverIds([]);
+            setIncludeNpc(false);
             setAmount({});
             setReason("");
             onDone();
@@ -629,7 +645,7 @@ function UnifiedTransferCard({
                         <div className="flex gap-1.5 bg-secondary/10 p-1 rounded-lg border border-border/20">
                             <button
                                 type="button"
-                                onClick={() => { setActionType("pay"); setReceiverType(null); }}
+                                onClick={() => { setActionType("pay"); setSelectedReceiverIds([]); setIncludeNpc(false); }}
                                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-all ${actionType === "pay"
                                     ? "bg-card text-foreground shadow-sm border border-border/50"
                                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/30"
@@ -639,7 +655,7 @@ function UnifiedTransferCard({
                             </button>
                             <button
                                 type="button"
-                                onClick={() => { setActionType("receive"); setReceiverType(null); }}
+                                onClick={() => { setActionType("receive"); setSelectedReceiverIds([]); setIncludeNpc(false); }}
                                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-all ${actionType === "receive"
                                     ? "bg-card text-foreground shadow-sm border border-border/50"
                                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/30"
@@ -653,12 +669,12 @@ function UnifiedTransferCard({
                     {/* Recipient Selector (Pay only) */}
                     {actionType === "pay" && (
                         <div className="space-y-2">
-                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recipient</Label>
+                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recipient(s)</Label>
                             <div className="flex flex-wrap gap-1.5">
                                 <button
                                     type="button"
-                                    onClick={() => setReceiverType("npc")}
-                                    className={`px-3 py-2 rounded-md text-xs transition-all border flex items-center gap-1.5 ${receiverType === "npc"
+                                    onClick={() => setIncludeNpc(!includeNpc)}
+                                    className={`px-3 py-2 rounded-md text-xs transition-all border flex items-center gap-1.5 ${includeNpc
                                         ? "bg-primary/20 text-dnd-red border-dnd-red/30 shadow-sm"
                                         : "bg-secondary/20 text-muted-foreground border-transparent hover:border-border/50 hover:bg-secondary/40"
                                         }`}
@@ -670,8 +686,8 @@ function UnifiedTransferCard({
                                     <button
                                         key={c.id}
                                         type="button"
-                                        onClick={() => setReceiverType(c.id)}
-                                        className={`px-3 py-2 rounded-md text-xs transition-all border flex items-center gap-1.5 ${receiverType === c.id
+                                        onClick={() => toggleReceiver(c.id)}
+                                        className={`px-3 py-2 rounded-md text-xs transition-all border flex items-center gap-1.5 ${selectedReceiverIds.includes(c.id)
                                             ? "bg-primary/20 text-dnd-red border-dnd-red/30 shadow-sm"
                                             : "bg-secondary/20 text-muted-foreground border-transparent hover:border-border/50 hover:bg-secondary/40"
                                             }`}
@@ -681,23 +697,30 @@ function UnifiedTransferCard({
                                     </button>
                                 ))}
                             </div>
+                            { (selectedReceiverIds.length + (includeNpc ? 1 : 0)) > 1 && (
+                                <p className="text-[10px] text-amber-500 font-medium italic mt-1">
+                                    Total amount will be split equally among all {selectedReceiverIds.length + (includeNpc ? 1 : 0)} recipients.
+                                </p>
+                            ) }
                         </div>
                     )}
 
                     {/* Amount */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amount</Label>
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            { (selectedReceiverIds.length + (includeNpc ? 1 : 0)) > 1 ? "Total Amount to Split" : "Amount" }
+                        </Label>
                         <CoinInput enabledCoins={enabledCoins} value={amount} onChange={setAmount} />
                     </div>
 
                     {/* Reason */}
                     <div className="space-y-1.5">
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            {receiverType === "npc" ? "What are you buying? *" : "Reason (optional)"}
+                            {includeNpc ? "What are you buying? *" : "Reason (optional)"}
                         </Label>
                         <Input
                             placeholder={
-                                receiverType === "npc"
+                                includeNpc
                                     ? "Potion of Healing..."
                                     : actionType === "receive"
                                         ? "Found loot in a chest..."
@@ -706,7 +729,7 @@ function UnifiedTransferCard({
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                             className="bg-secondary/20 border-border/30 h-10 text-sm"
-                            required={receiverType === "npc"}
+                            required={includeNpc}
                         />
                     </div>
 
@@ -718,9 +741,11 @@ function UnifiedTransferCard({
                         {sending
                             ? "Processing..."
                             : actionType === "pay"
-                                ? receiverType === "npc"
-                                    ? <><Store className="w-5 h-5" /> Spend Coins</>
-                                    : <><ArrowUpRight className="w-5 h-5" /> Send Coins</>
+                                ? (selectedReceiverIds.length + (includeNpc ? 1 : 0)) > 1
+                                    ? <><ArrowUpRight className="w-5 h-5" /> Distribute Coins</>
+                                    : includeNpc
+                                        ? <><Store className="w-5 h-5" /> Spend Coins</>
+                                        : <><ArrowUpRight className="w-5 h-5" /> Send Coins</>
                                 : <><PlusCircle className="w-5 h-5" /> Add Funds</>}
                     </Button>
                 </form>

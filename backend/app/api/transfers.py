@@ -18,6 +18,7 @@ from app.models.party import Party
 from app.models.transaction import Transaction, TransactionType
 from app.models.user import User
 from app.schemas.transaction import (
+    DistributeRequest,
     DMLootRequest,
     DMGodModeRequest,
     SelfAddRequest,
@@ -137,6 +138,124 @@ async def transfer_p2p(
     })
 
     return _transaction_to_response(txn, party, session)
+
+
+@router.post("/distribute", response_model=list[TransactionResponse], status_code=status.HTTP_201_CREATED)
+async def transfer_distribute(
+    body: DistributeRequest,
+    party: Party = Depends(require_active_party),
+    sender_char: Character = Depends(get_user_character_in_party),
+    session: Session = Depends(get_session),
+):
+    """Character distributes money among selected characters and/or NPC."""
+    # Calculate amount in copper
+    try:
+        total_amount_cp = coins_to_cp(**body.amount)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    if total_amount_cp <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Distribution amount must be positive",
+        )
+
+    # Check sufficient funds
+    if sender_char.balance_cp < total_amount_cp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Insufficient funds",
+        )
+
+    # Count recipients
+    recipients_count = len(body.character_ids) + (1 if body.include_npc else 0)
+    if recipients_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Must select at least one recipient (character or NPC)",
+        )
+
+    # Calculate share (standard integer division)
+    split_amount_cp = total_amount_cp // recipients_count
+    if split_amount_cp <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Amount is too small to split among the selected recipients",
+        )
+
+    # Validate all recipient characters exist and are in the same party
+    receiver_chars = []
+    for char_id in body.character_ids:
+        if char_id == sender_char.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot distribute to yourself",
+            )
+        
+        receiver = session.get(Character, char_id)
+        if not receiver or receiver.party_id != party.id or not receiver.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Character {char_id} not found in this party",
+            )
+        receiver_chars.append(receiver)
+
+    transactions = []
+
+    # 1. Update sender balance
+    # We deduct the total amount actually distributed (accounting for remainder)
+    actual_distributed_cp = split_amount_cp * recipients_count
+    sender_char.balance_cp -= actual_distributed_cp
+    session.add(sender_char)
+
+    # 2. Process character recipients
+    for receiver in receiver_chars:
+        receiver.balance_cp += split_amount_cp
+        txn = Transaction(
+            transaction_type=TransactionType.TRANSFER,
+            amount_cp=split_amount_cp,
+            reason=body.reason,
+            party_id=party.id,
+            sender_id=sender_char.id,
+            receiver_id=receiver.id,
+        )
+        session.add(receiver)
+        session.add(txn)
+        transactions.append((txn, receiver.id))
+
+    # 3. Process NPC recipient if included
+    if body.include_npc:
+        txn = Transaction(
+            transaction_type=TransactionType.SPEND,
+            amount_cp=split_amount_cp,
+            reason=body.reason,
+            party_id=party.id,
+            sender_id=sender_char.id,
+            receiver_id=None,
+        )
+        session.add(txn)
+        transactions.append((txn, None))
+
+    session.commit()
+
+    # Finalize results and broadcast
+    results = []
+    for txn, char_id in transactions:
+        session.refresh(txn)
+        results.append(_transaction_to_response(txn, party, session))
+        await event_manager.broadcast(party.id, "transaction_new", {"transaction_id": txn.id})
+        if char_id:
+            char = session.get(Character, char_id)
+            await event_manager.broadcast(party.id, "balance_update", {
+                "character_id": char_id, "balance_cp": char.balance_cp
+            })
+
+    # Always broadcast sender's new balance
+    await event_manager.broadcast(party.id, "balance_update", {
+        "character_id": sender_char.id, "balance_cp": sender_char.balance_cp
+    })
+
+    return results
 
 
 @router.post("/loot", response_model=list[TransactionResponse], status_code=status.HTTP_201_CREATED)

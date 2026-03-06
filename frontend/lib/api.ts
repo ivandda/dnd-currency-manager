@@ -190,6 +190,12 @@ export const transferApi = {
             body: JSON.stringify({ receiver_id, amount, reason }),
         }),
 
+    distribute: (code: string, character_ids: number[], include_npc: boolean, amount: Record<string, number>, reason?: string) =>
+        request<import("./types").TransactionResponse[]>(`/api/parties/${code}/transfers/distribute`, {
+            method: "POST",
+            body: JSON.stringify({ character_ids, include_npc, amount, reason }),
+        }),
+
     loot: (code: string, character_ids: number[], amount: Record<string, number>, reason?: string, is_deduction = false) =>
         request<import("./types").TransactionResponse[]>(`/api/parties/${code}/transfers/loot`, {
             method: "POST",
