@@ -442,24 +442,24 @@ function PartyTab({
     const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/?party=${partyCode}` : "";
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             {/* Invite Instructions */}
             <Card className="card-medieval bg-secondary/10 border-border/30 shadow-none">
-                <CardHeader className="pb-2">
+                <CardHeader className="p-2 pb-1 mt-1">
                     <CardTitle className="text-sm flex items-center gap-1.5"><Castle className="w-4 h-4" /> Invite Players</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                    <p className="text-xs text-muted-foreground">
-                        Share this code or link with your players so they can join the party.
+                <CardContent className="p-2 pt-0 space-y-1.5">
+                    <p className="text-xs text-muted-foreground leading-tight px-1 mb-1">
+                        Share this code or link with your players so they can join.
                     </p>
-                    <div className="flex items-center gap-2 bg-background/50 border border-border/40 rounded-md p-2">
-                        <code className="text-[10px] sm:text-xs font-mono font-bold text-primary flex-1 tracking-wider">{partyCode}</code>
+                    <div className="flex items-center gap-2 bg-background/50 border border-border/40 rounded-md p-1 px-1.5">
+                        <code className="text-[10px] sm:text-xs font-mono font-bold text-primary flex-1 tracking-wider pl-1">{partyCode}</code>
                         <CopyBadge text={partyCode} />
                     </div>
                     <Button
                         variant="outline"
                         size="sm"
-                        className="w-full text-xs h-8 bg-background border-border border-dashed shadow-sm"
+                        className="w-full text-xs h-7 bg-background border-border border-dashed shadow-sm"
                         onClick={async () => {
                             try { await navigator.clipboard.writeText(joinUrl); toast.success("Link copied!"); }
                             catch { toast.error("Failed to copy link"); }
@@ -470,7 +470,7 @@ function PartyTab({
                 </CardContent>
             </Card>
 
-            <h3 className="text-lg font-bold text-dnd-red mt-2 flex items-center gap-2 px-1">
+            <h3 className="text-lg font-bold text-dnd-red pt-1 flex items-center gap-2 px-1">
                 <Shield className="w-4 h-4" /> Party Members
             </h3>
             <div className="space-y-2">
