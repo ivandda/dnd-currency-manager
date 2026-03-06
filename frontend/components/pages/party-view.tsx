@@ -165,7 +165,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
         <div className="h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden">
             {/* Header */}
             <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm shrink-0 z-50 flex flex-col">
-                <div className="max-w-[1200px] mx-auto w-full px-4 py-2.5 flex items-center justify-between gap-4">
+                <div className="w-full px-6 md:px-10 lg:px-16 py-2.5 flex items-center justify-between gap-4">
                     <div className="flex items-center min-w-0 shrink">
                         <button onClick={onBack} className="text-muted-foreground hover:text-foreground text-sm shrink-0 flex items-center gap-1">
                             <ArrowLeft className="w-4 h-4" /> Back
@@ -188,7 +188,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
             </header>
 
             {/* Desktop / Mobile Dual Layout */}
-            <div className="flex-1 flex flex-col md:flex-row max-w-[1200px] mx-auto w-full overflow-hidden relative">
+            <div className="flex-1 flex flex-col md:flex-row w-full overflow-hidden relative">
 
                 {/* --- MOBILE TAB BAR (Hidden on md+) --- */}
                 <div className="md:hidden border-b border-border/30 bg-card/30 shrink-0 z-30">
@@ -224,7 +224,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
 
                 {/* --- LEFT SIDEBAR: PARTY INFO (Desktop persistent, Mobile activeTab only) --- */}
                 <aside className={`${activeTab === "party" ? "flex" : "hidden"} md:flex flex-col w-full md:w-80 lg:w-96 shrink-0 md:border-r border-border/30 bg-card/10 overflow-hidden relative`}>
-                    <div className="flex-1 overflow-y-auto px-4 py-4 md:py-6 pb-6 mt-1.5">
+                    <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-4 md:py-6 pb-6 mt-1.5">
                         <PartyTab
                             party={party}
                             isDM={isDM}
@@ -255,8 +255,8 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                     )}
 
                     {/* Desktop Tab Bar (Excludes Party Tab) */}
-                    <div className="hidden md:flex border-b border-border/30 bg-card/60 backdrop-blur-md shrink-0 z-30 justify-center">
-                        <div className="w-full max-w-2xl px-2 flex">
+                    <div className="hidden md:flex border-b border-border/30 bg-card/60 backdrop-blur-md shrink-0 z-30 justify-start">
+                        <div className="w-full px-8 md:px-12 lg:px-16 flex">
                             {TABS.filter(t => t !== "party").map((tab) => {
                                 const Icon = TAB_LABELS[tab].icon;
                                 const isSelected = activeTab === tab || (activeTab === "party" && tab === "treasury"); // Fallback for desktop when state is 'party'
@@ -290,7 +290,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                     {/* Scrollable Content Container */}
                     <div className="flex-1 overflow-y-auto w-full relative">
                         {/* Tab Content Wrapper */}
-                        <div className="max-w-2xl mx-auto w-full px-4 py-4 md:py-6 pb-6 animate-fade-in">
+                        <div className="w-full px-8 md:px-12 lg:px-16 py-4 md:py-6 pb-6 animate-fade-in">
                             {(activeTab === "treasury" || (activeTab === "party" && window.innerWidth >= 768)) && (
                                 <TreasuryTab
                                     party={party}
@@ -322,7 +322,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
 
             {/* Identity / Balance Footer */}
             <footer className="bg-secondary/10 border-t border-border/20 shrink-0 z-50">
-                <div className="max-w-[1200px] mx-auto w-full px-4 py-3 flex items-center justify-between">
+                <div className="w-full px-6 py-3 flex items-center justify-between">
                     {myCharacter ? (
                         <>
                             <div className="flex items-center gap-3 min-w-0">

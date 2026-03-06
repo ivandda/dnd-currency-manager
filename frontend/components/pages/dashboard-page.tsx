@@ -120,7 +120,7 @@ export default function DashboardPage() {
         <div className="min-h-screen">
             {/* Header */}
             <header className="border-b border-border/40 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+                <div className="w-full px-8 md:px-12 lg:px-16 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Swords className="text-dnd-red w-6 h-6" />
                         <h1 className="text-xl font-bold text-dnd-red glow-red">D&D Currency</h1>
@@ -142,7 +142,7 @@ export default function DashboardPage() {
                 </div>
             </header>
 
-            <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 md:py-12 animate-fade-in">
+            <main className="w-full px-8 md:px-12 lg:px-16 py-8 md:py-12 animate-fade-in">
                 <div className="flex flex-col md:flex-row gap-8 lg:gap-12">
 
                     {/* Left Column: Actions & Info */}
