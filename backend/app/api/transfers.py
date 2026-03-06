@@ -167,8 +167,11 @@ async def transfer_distribute(
             detail="Insufficient funds",
         )
 
+    # De-duplicate recipients to avoid overpaying and incorrect split math
+    unique_character_ids = list(set(body.character_ids))
+    
     # Count recipients
-    recipients_count = len(body.character_ids) + (1 if body.include_npc else 0)
+    recipients_count = len(unique_character_ids) + (1 if body.include_npc else 0)
     if recipients_count == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -185,7 +188,7 @@ async def transfer_distribute(
 
     # Validate all recipient characters exist and are in the same party
     receiver_chars = []
-    for char_id in body.character_ids:
+    for char_id in unique_character_ids:
         if char_id == sender_char.id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -277,7 +280,9 @@ async def dm_loot(
             detail="Amount must be positive",
         )
 
-    if not body.character_ids:
+    # De-duplicate characters to avoid overpaying/over-deducting and incorrect split math
+    unique_character_ids = list(set(body.character_ids))
+    if not unique_character_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Must select at least one character",
@@ -285,7 +290,7 @@ async def dm_loot(
 
     # Split the total amount equally among all selected characters
     # If it doesn't divide perfectly, the remainder is lost (standard integer division)
-    split_amount_cp = total_amount_cp // len(body.character_ids)
+    split_amount_cp = total_amount_cp // len(unique_character_ids)
 
     if split_amount_cp <= 0:
         raise HTTPException(
@@ -295,7 +300,7 @@ async def dm_loot(
 
     # First pass: check if all characters exist, are active, and have sufficient funds if deducting
     characters_to_update = []
-    for char_id in body.character_ids:
+    for char_id in unique_character_ids:
         character = session.get(Character, char_id)
         if not character or character.party_id != party.id or not character.is_active:
             raise HTTPException(

@@ -24,13 +24,24 @@ import { CoinInput } from "@/components/coin-input";
 import { usePartySSE } from "@/hooks/use-party-sse";
 import { toast } from "sonner";
 import {
-    Castle, CircleDollarSign, Handshake, Scroll, Shield, Search, Package, Check, Crown, ArrowLeft,
-    Zap, Gem, ArrowUpRight, ArrowDownRight, Store, PlusCircle, Copy, Archive, Settings, BoxSelect, Plus, Minus, X, Sun, Moon
+    Castle, CircleDollarSign, Handshake, Scroll, Shield, Check, Crown, ArrowLeft,
+    Zap, Gem, ArrowUpRight, Store, PlusCircle, Copy, Archive, Settings, Plus, Minus, X, Sun, Moon
 } from "lucide-react";
 
 interface PartyViewProps {
     partyCode: string;
     onBack: () => void;
+}
+
+/** Simple hook for window width reactivity */
+function useWindowWidth() {
+    const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1024);
+    useEffect(() => {
+        const handleResize = () => setWidth(window.innerWidth);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+    return width;
 }
 
 const TABS = ["party", "treasury", "splits", "history"] as const;
@@ -45,6 +56,7 @@ const TAB_LABELS: Record<TabId, { text: string; icon: React.ElementType }> = {
 export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     const { user } = useAuth();
     const { theme, toggleTheme } = useTheme();
+    const width = useWindowWidth();
     const [party, setParty] = useState<PartyDetail | null>(null);
     const [transactions, setTransactions] = useState<TransactionResponse[]>([]);
     const [jointPayments, setJointPayments] = useState<JointPaymentResponse[]>([]);
@@ -101,41 +113,29 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
         }
     });
 
-    // Swipe handling for tab navigation
-    const handleTouchStart = (e: React.TouchEvent) => {
-        touchStartX.current = e.touches[0].clientX;
-        // Pull-to-refresh: track vertical start
-        const scrollTop = contentRef.current?.scrollTop ?? 0;
-        if (scrollTop <= 0) {
-            pullStartY.current = e.touches[0].clientY;
+    const pendingCount = jointPayments.filter((p) => p.status === "pending").length;
+
+    // --- PULL-TO-REFRESH ---
+    const onTouchStart = (e: React.TouchEvent) => {
+        if (contentRef.current?.scrollTop === 0) {
+            pullStartY.current = e.touches[0].pageY;
             isPulling.current = true;
         }
     };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
+    const onTouchMove = (e: React.TouchEvent) => {
         if (!isPulling.current) return;
-        const dy = e.touches[0].clientY - pullStartY.current;
-        if (dy > 0 && !isRefreshing) {
-            setPullDistance(Math.min(dy * 0.5, 80));
+        const currentY = e.touches[0].pageY;
+        const diff = currentY - pullStartY.current;
+        if (diff > 0) {
+            setPullDistance(Math.min(diff * 0.4, 80));
         }
     };
-
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        // Horizontal swipe for tab navigation
-        const diffX = touchStartX.current - e.changedTouches[0].clientX;
-        if (Math.abs(diffX) > 60) {
-            const idx = TABS.indexOf(activeTab);
-            if (diffX > 0 && idx < TABS.length - 1) setActiveTab(TABS[idx + 1]);
-            if (diffX < 0 && idx > 0) setActiveTab(TABS[idx - 1]);
-        }
-
-        // Pull-to-refresh
-        if (isPulling.current && pullDistance > 50 && !isRefreshing) {
+    const onTouchEnd = () => {
+        if (pullDistance > 60) {
             setIsRefreshing(true);
             loadAll().finally(() => {
                 setIsRefreshing(false);
                 setPullDistance(0);
-                toast.success("Refreshed!");
             });
         } else {
             setPullDistance(0);
@@ -143,23 +143,18 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
         isPulling.current = false;
     };
 
-    if (loading || !party) {
+    if (loading && !party) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <p className="text-muted-foreground animate-fade-in">Loading...</p>
+            <div className="h-screen flex items-center justify-center bg-background">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                    <p className="text-gold font-medium animate-pulse">Consulting the Scrolls...</p>
+                </div>
             </div>
         );
     }
 
-    const pendingCount = jointPayments.filter((p) => {
-        if (p.status !== "pending") return false;
-        if (isDM) return true;
-        if (!myCharacter) return false;
-        if (p.creator_character_id === myCharacter.id) return true;
-        return p.participants.some(
-            (pt) => pt.character_id === myCharacter.id && !pt.has_accepted
-        );
-    }).length;
+    if (!party) return <div>Party not found</div>;
 
     return (
         <div className="h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden">
@@ -171,18 +166,40 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                             <ArrowLeft className="w-4 h-4" /> Back
                         </button>
                         <Separator orientation="vertical" className="h-5 mx-2 sm:mx-3 bg-border/40" />
-
-                        <h1 className="text-base font-bold text-dnd-red break-words">{party.name}</h1>
+                        <div className="flex flex-col min-w-0">
+                            <h1 className="text-base sm:text-lg font-bold text-dnd-red truncate glow-red-sm leading-tight">
+                                {party.name}
+                            </h1>
+                            <div className="flex items-center gap-1.5 overflow-hidden">
+                                <span className="text-[10px] sm:text-xs font-mono text-muted-foreground tracking-widest uppercase opacity-70">
+                                    Code:
+                                </span>
+                                <span className="text-[10px] sm:text-xs font-mono font-bold text-primary tracking-wider truncate">
+                                    {partyCode}
+                                </span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                         <button
                             onClick={toggleTheme}
-                            className="text-muted-foreground hover:text-foreground p-1.5 rounded-md bg-secondary/20 hover:bg-secondary/40 transition-colors flex items-center justify-center"
-                            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+                            className="p-2 rounded-full hover:bg-secondary/20 transition-colors"
+                            aria-label="Toggle theme"
                         >
-                            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                            {theme === "dark" ? <Sun className="w-4 h-4 text-gold" /> : <Moon className="w-4 h-4 text-blue-600" />}
                         </button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2.5 sm:px-3 text-xs border-border/40 hover:bg-secondary/20 font-semibold shadow-sm"
+                            onClick={loadAll}
+                            disabled={isRefreshing}
+                        >
+                            {isRefreshing ? <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin mr-1.5" /> : null}
+                            <span className="hidden sm:inline">Refresh</span>
+                            <span className="sm:hidden">↻</span>
+                        </Button>
                     </div>
                 </div>
             </header>
@@ -195,29 +212,23 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                     <div className="w-full px-2 flex">
                         {TABS.map((tab) => {
                             const Icon = TAB_LABELS[tab].icon;
+                            const isSelected = activeTab === tab;
                             return (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
-                                    className={`flex-1 py-3 text-xs font-medium text-center transition-colors relative ${activeTab === tab
-                                        ? "text-dnd-red"
-                                        : "text-muted-foreground hover:text-foreground"
-                                        }`}
+                                    className={`flex-1 py-3 flex flex-col items-center gap-0.5 transition-all relative ${isSelected ? "text-dnd-red" : "text-muted-foreground"}`}
                                 >
-                                    <div className="flex items-center justify-center gap-1.5">
-                                        <Icon className="w-4 h-4" />
-                                        <span>{TAB_LABELS[tab].text}</span>
-                                    </div>
+                                    <Icon className="w-5 h-5" />
+                                    <span className="text-[10px] font-medium uppercase tracking-tighter">{TAB_LABELS[tab].text}</span>
+                                    {isSelected && <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-dnd-red rounded-t-full" />}
                                     {tab === "splits" && pendingCount > 0 && (
-                                        <span className="absolute -top-0.5 right-1 bg-dnd-red text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center">
+                                        <span className="absolute top-1 right-1/4 bg-dnd-red text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center border-2 border-background">
                                             {pendingCount}
                                         </span>
                                     )}
-                                    {activeTab === tab && (
-                                        <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-dnd-red rounded-full" />
-                                    )}
                                 </button>
-                            )
+                            );
                         })}
                     </div>
                 </div>
@@ -236,15 +247,9 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                     </div>
                 </aside>
 
-                {/* --- RIGHT CONTENT AREA (Hidden on Mobile if activeTab === party) --- */}
-                <main
-                    ref={contentRef}
-                    className={`${activeTab !== "party" ? "flex" : "hidden md:flex"} flex-1 flex-col min-w-0 bg-grid-pattern relative overflow-hidden`}
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                >
-                    {/* Pull-to-refresh indicator */}
+                {/* --- MAIN CONTENT AREA (Tabs for Desktop, Conditional for Mobile) --- */}
+                <main className={`flex-1 flex flex-col overflow-hidden bg-background ${activeTab === "party" ? "hidden md:flex" : "flex"}`}>
+                    {/* Pull-to-refresh indicator (mobile only) */}
                     {pullDistance > 0 && (
                         <div
                             className="pull-indicator flex items-center justify-center text-muted-foreground text-xs bg-background/50 backdrop-blur-sm py-2 shrink-0 border-b border-border/20 z-40"
@@ -291,7 +296,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                     <div className="flex-1 overflow-y-auto w-full relative">
                         {/* Tab Content Wrapper */}
                         <div className="w-full px-8 md:px-12 lg:px-16 py-4 md:py-6 pb-6 animate-fade-in">
-                            {(activeTab === "treasury" || (activeTab === "party" && window.innerWidth >= 768)) && (
+                            {(activeTab === "treasury" || (activeTab === "party" && width >= 768)) && (
                                 <TreasuryTab
                                     party={party}
                                     isDM={isDM}
@@ -306,7 +311,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                                     partyCode={partyCode}
                                     isDM={isDM}
                                     myCharacter={myCharacter}
-                                    characters={party.characters.filter((c) => c.is_active)}
+                                    characters={party.characters.filter(c => c.is_active)}
                                     enabledCoins={enabledCoins}
                                     jointPayments={jointPayments}
                                     onRefresh={loadAll}
@@ -322,7 +327,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
 
             {/* Identity / Balance Footer */}
             <footer className="bg-secondary/10 border-t border-border/20 shrink-0 z-50">
-                <div className="w-full px-6 py-3 flex items-center justify-between">
+                <div className="w-full px-8 md:px-12 lg:px-16 py-3 flex items-center justify-between">
                     {myCharacter ? (
                         <>
                             <div className="flex items-center gap-3 min-w-0">
@@ -699,7 +704,7 @@ function UnifiedTransferCard({
                             </div>
                             { (selectedReceiverIds.length + (includeNpc ? 1 : 0)) > 1 && (
                                 <p className="text-[10px] text-amber-500 font-medium italic mt-1">
-                                    Total amount will be split equally among all {selectedReceiverIds.length + (includeNpc ? 1 : 0)} recipients.
+                                    Total amount will be split as evenly as possible among all {selectedReceiverIds.length + (includeNpc ? 1 : 0)} recipients. Any leftover copper that cannot be split exactly will remain with you.
                                 </p>
                             ) }
                         </div>
@@ -775,27 +780,14 @@ function DMControls({
         if (Object.keys(amount).length === 0) return toast.error("Enter an amount");
         setSending(true);
         try {
-            // Always treat the amount as the TOTAL to be divided among selected.
-            // Note: Since God Mode traditionally did "each", we either need backend support for "total" division
-            // or we calculate the "per player" amount here on the frontend and send it out. 
-            // The division logic is standard: calculate total value and split. But wait! Since coins are distinct types (e.g. 5 gold, 1 silver), dividing them perfectly per-player locally can be messy algorithmically vs just sending it to a backend endpoint designed to divide it.
-            // Wait, does `transferApi.loot` divide it equally? Let's check `transferApi.loot`: `loot(partyCode, participants, amount, reason)` -> `POST /api/parties/${partyCode}/loot`.
+            // Total amount is divided equally among selected characters.
+            // Remainder (if any) is not distributed.
             if (mode === "add") {
-                await transferApi.loot(partyCode, selectedChars, amount, reason || undefined);
-                toast.success("Funds added and divided equally!");
+                await transferApi.loot(partyCode, selectedChars, amount, reason || undefined, false);
+                toast.success("Total funds added and divided equally!");
             } else {
-                // For direct deductions, we need a similar path, or handle division if `loot` only adds.
-                // Let's rely on standard backend calls. Wait, `loot` is essentially "distribute evenly".
-                // If it must divide a deduction, does the backend support negative amounts in loot? Or should we use `godMode` taking the divided amounts per character?
-
-                // For now, let's call godMode iterably with divided amount, OR use the `loot` endpoint if we change the backend.
-                // It's safer to use godMode per player if the backend `loot` doesn't do negative.
-                // But the user requested "the total selected is the TOTAL not the each".
-                // If the user selects 5 gold to Add between 2 players, they each get 2 gold 5 silver (if `loot` handles standard exchange rates) or standard division. 
-                // Let's implement the `total -> divided` logic. Since the user asked to change backend/tests if needed, we'll update the backend to ensure `loot` works as "add total" and we might need an endpoint for "deduct total", or we'll update the existing backend.
-
-                await transferApi.loot(partyCode, selectedChars, amount, reason || undefined, mode === "deduct");
-                toast.success(mode === "deduct" ? "Total funds deducted equally!" : "Total funds added equally!");
+                await transferApi.loot(partyCode, selectedChars, amount, reason || undefined, true);
+                toast.success("Total funds deducted equally!");
             }
             setSelectedChars([]); setAmount({}); setReason(""); onDone();
         } catch (err: unknown) {
@@ -874,7 +866,7 @@ function DMControls({
                     </div>
 
                     <Button type="submit" className={`w-full h-12 font-semibold text-base transition-transform hover:scale-[1.02] active:scale-100 flex items-center justify-center gap-2 ${mode === "deduct" ? "bg-destructive text-white hover:bg-destructive/90" : "bg-primary text-primary-foreground hover:bg-primary/90"}`} disabled={sending}>
-                        {sending ? "Processing..." : mode === "deduct" ? <><Minus className="w-5 h-5" /> Deduct Total Equaly</> : <><Plus className="w-5 h-5" /> Add Total Equaly</>}
+                        {sending ? "Processing..." : mode === "deduct" ? <><Minus className="w-5 h-5" /> Deduct Total Equally</> : <><Plus className="w-5 h-5" /> Add Total Equally</>}
                     </Button>
                 </form>
             </CardContent>

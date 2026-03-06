@@ -19,7 +19,6 @@ import PartyView from "./party-view";
 
 export default function DashboardPage() {
     const { user, logout } = useAuth();
-    const { theme } = useTheme();
     const [parties, setParties] = useState<Party[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedParty, setSelectedParty] = useState<string | null>(null);

@@ -13,10 +13,8 @@ type SSEHandler = (event: string, data: unknown) => void;
  */
 export function usePartySSE(partyCode: string | null, onEvent: SSEHandler) {
     const onEventRef = useRef(onEvent);
+    onEventRef.current = onEvent;
 
-    useEffect(() => {
-        onEventRef.current = onEvent;
-    }, [onEvent]);
     const esRef = useRef<EventSource | null>(null);
 
     const connect = useCallback(() => {
