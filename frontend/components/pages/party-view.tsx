@@ -25,7 +25,7 @@ import { usePartySSE } from "@/hooks/use-party-sse";
 import { toast } from "sonner";
 import {
     Castle, CircleDollarSign, Handshake, Scroll, Shield, Search, Package, Check, Crown, ArrowLeft,
-    Zap, Gem, ArrowUpRight, ArrowDownRight, Store, PlusCircle, Copy, Archive, Settings, BoxSelect, Plus, Minus, X
+    Zap, Gem, ArrowUpRight, ArrowDownRight, Store, PlusCircle, Copy, Archive, Settings, BoxSelect, Plus, Minus, X, Sun, Moon
 } from "lucide-react";
 
 interface PartyViewProps {
@@ -165,36 +165,45 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
         <div className="h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden">
             {/* Header */}
             <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm shrink-0 z-50 flex flex-col">
-                <div className="max-w-[1200px] mx-auto w-full px-4 py-2.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
+                <div className="max-w-[1200px] mx-auto w-full px-4 py-2.5 flex items-center justify-between gap-4">
+                    <div className="flex items-center min-w-0 shrink">
                         <button onClick={onBack} className="text-muted-foreground hover:text-foreground text-sm shrink-0 flex items-center gap-1">
                             <ArrowLeft className="w-4 h-4" /> Back
                         </button>
-                        <h1 className="text-base font-bold text-dnd-red truncate sm:max-w-[200px] md:max-w-max ml-2 border-l border-border/30 pl-3">{party.name}</h1>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={toggleTheme}
-                            className="text-sm px-2 py-1.5 rounded-md bg-secondary/40 hover:bg-secondary/60 transition-colors flex items-center justify-center shrink-0"
-                            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-                        >
-                            {theme === "dark" ? <span className="text-lg leading-none">☀️</span> : <span className="text-lg leading-none">🌙</span>}
-                        </button>
-                        <CopyBadge text={party.code} />
-                    </div>
-                </div>
+                        <Separator orientation="vertical" className="h-5 mx-2 sm:mx-3 bg-border/40" />
 
-                {/* Identity / Balance Bar (Moved from bottom) */}
-                <div className="bg-secondary/10 border-t border-border/20">
-                    <div className="max-w-[1200px] mx-auto w-full px-4 py-2 flex items-center justify-between">
+                        <h1 className="text-base font-bold text-dnd-red truncate shrink-0 max-w-[100px] sm:max-w-[200px] lg:max-w-none">{party.name}</h1>
+                        <Separator orientation="vertical" className="h-5 mx-2 sm:mx-3 bg-border/40" />
+
+                        {/* Integrated Identity */}
                         {myCharacter ? (
-                            <>
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-xs font-semibold text-foreground shrink-0">{myCharacter.name}</span>
-                                    <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4 bg-background/50">
-                                        {myCharacter.character_class}
-                                    </Badge>
+                            <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-sm font-semibold text-foreground truncate">{myCharacter.name}</span>
+                                <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4 bg-background/50 hidden sm:inline-flex shrink-0">
+                                    {myCharacter.character_class}
+                                </Badge>
+                                <span className="text-muted-foreground/40 hidden sm:inline px-1">•</span>
+                                <div className="hidden sm:flex">
+                                    <CoinDisplay
+                                        coins={myCharacter.balance_display}
+                                        balanceCp={myCharacter.balance_cp}
+                                        enabledCoins={enabledCoins}
+                                        size="sm"
+                                        interactive
+                                        animated
+                                    />
                                 </div>
+                            </div>
+                        ) : isDM ? (
+                            <span className="text-gold text-sm font-semibold flex items-center gap-1.5 shrink-0"><Crown className="w-4 h-4" /> <span className="hidden sm:inline">Dungeon Master</span><span className="sm:hidden">DM</span></span>
+                        ) : (
+                            <span className="text-sm text-muted-foreground shrink-0">Observer</span>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                        {myCharacter && (
+                            <div className="flex sm:hidden">
                                 <CoinDisplay
                                     coins={myCharacter.balance_display}
                                     balanceCp={myCharacter.balance_cp}
@@ -203,14 +212,15 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                                     interactive
                                     animated
                                 />
-                            </>
-                        ) : isDM ? (
-                            <div className="flex items-center gap-2 w-full justify-center">
-                                <span className="text-gold text-xs font-semibold flex items-center gap-1.5"><Crown className="w-4 h-4" /> Dungeon Master</span>
                             </div>
-                        ) : (
-                            <span className="text-xs text-muted-foreground">Not in this party</span>
                         )}
+                        <button
+                            onClick={toggleTheme}
+                            className="text-muted-foreground hover:text-foreground p-1.5 rounded-md bg-secondary/20 hover:bg-secondary/40 transition-colors flex items-center justify-center"
+                            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+                        >
+                            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                        </button>
                     </div>
                 </div>
             </header>
@@ -424,9 +434,14 @@ function PartyTab({
     party: PartyDetail; isDM: boolean; myCharacter: CharacterInParty | undefined;
     partyCode: string; onRefresh: () => void; onBack: () => void;
 }) {
-    const otherMembers = party.characters.filter(
-        (c) => c.is_active && c.id !== myCharacter?.id
-    );
+    const activeCharacters = party.characters.filter(c => c.is_active);
+
+    // Sort so myCharacter is first
+    const sortedMembers = [...activeCharacters].sort((a, b) => {
+        if (a.id === myCharacter?.id) return -1;
+        if (b.id === myCharacter?.id) return 1;
+        return a.name.localeCompare(b.name);
+    });
 
     const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/?party=${partyCode}` : "";
 
@@ -463,18 +478,28 @@ function PartyTab({
                 <Shield className="w-4 h-4" /> Party Members
             </h3>
             <div className="space-y-2">
-                {otherMembers.map((char) => (
+                {sortedMembers.map((char) => (
                     <div
                         key={char.id}
-                        className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-secondary/20 border border-border/20"
+                        className={`flex items-center justify-between py-2.5 px-3 rounded-lg border ${char.id === myCharacter?.id
+                            ? "bg-primary/10 border-primary/30 shadow-sm"
+                            : "bg-secondary/20 border-border/20"
+                            }`}
                     >
                         <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">{char.name}</p>
+                            <p className="font-medium text-sm truncate flex items-center gap-2">
+                                {char.name}
+                                {char.id === myCharacter?.id && (
+                                    <Badge variant="default" className="text-[10px] h-4 px-1.5 py-0 bg-primary/20 text-primary hover:bg-primary/30 border-none shadow-none font-bold">
+                                        You
+                                    </Badge>
+                                )}
+                            </p>
                             <p className="text-xs text-muted-foreground">{char.character_class}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                             <CoinDisplay coins={char.balance_display} size="sm" />
-                            {isDM && (
+                            {isDM && char.id !== myCharacter?.id && (
                                 <button
                                     onClick={async () => {
                                         if (!confirm(`Kick ${char.name}?`)) return;
@@ -492,7 +517,7 @@ function PartyTab({
                         </div>
                     </div>
                 ))}
-                {otherMembers.length === 0 && (
+                {sortedMembers.length === 0 && (
                     <EmptyState icon="shield" message="No adventurers yet — share the party code!" />
                 )}
             </div>
@@ -822,7 +847,7 @@ function DMControls({
                     {/* Reason */}
                     <div className="space-y-1.5">
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reason (optional)</Label>
-                        <Input placeholder={mode === "loot" ? "Dragon treasure..." : "Divine intervention..."}
+                        <Input placeholder={mode === "deduct" ? "Divine intervention..." : "Dragon treasure..."}
                             value={reason} onChange={(e) => setReason(e.target.value)}
                             className="bg-secondary/20 border-border/30 h-10 text-sm" />
                     </div>
