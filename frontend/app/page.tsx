@@ -14,7 +14,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center animate-fade-in">
           <h1 className="text-4xl font-bold text-gold glow-gold font-[var(--font-heading)]">
-            ⚔️ D&D Currency Manager
+            D&D Currency Manager
           </h1>
           <p className="text-muted-foreground mt-3 text-lg">
             Consulting the ancient ledgers...

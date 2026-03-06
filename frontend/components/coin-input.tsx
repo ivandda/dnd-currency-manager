@@ -11,12 +11,12 @@ interface CoinInputProps {
     className?: string;
 }
 
-const COIN_INFO: Record<CoinType, { label: string; color: string; icon: string }> = {
-    pp: { label: "Platinum", color: "text-platinum", icon: "💎" },
-    gp: { label: "Gold", color: "text-gold", icon: "🪙" },
-    ep: { label: "Electrum", color: "text-electrum", icon: "⚡" },
-    sp: { label: "Silver", color: "text-silver-coin", icon: "🥈" },
-    cp: { label: "Copper", color: "text-copper", icon: "🟤" },
+const COIN_INFO: Record<CoinType, { label: string; color: string; icon: React.ReactNode }> = {
+    pp: { label: "Platinum", color: "text-platinum", icon: <div title="Platinum" className="w-3 h-3 shrink-0 rounded-full bg-platinum border border-foreground/20 shadow-sm" /> },
+    gp: { label: "Gold", color: "text-gold", icon: <div title="Gold" className="w-3 h-3 shrink-0 rounded-full bg-gold border border-background shadow-sm" /> },
+    ep: { label: "Electrum", color: "text-electrum", icon: <div title="Electrum" className="w-3 h-3 shrink-0 rounded-full bg-electrum border border-background shadow-sm" /> },
+    sp: { label: "Silver", color: "text-silver-coin", icon: <div title="Silver" className="w-3 h-3 shrink-0 rounded-full bg-silver-coin border border-background shadow-sm" /> },
+    cp: { label: "Copper", color: "text-copper", icon: <div title="Copper" className="w-3 h-3 shrink-0 rounded-full bg-copper border border-background shadow-sm" /> },
 };
 
 export function CoinInput({ enabledCoins, value, onChange, className = "" }: CoinInputProps) {

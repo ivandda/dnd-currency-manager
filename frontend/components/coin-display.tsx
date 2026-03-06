@@ -18,12 +18,12 @@ interface CoinDisplayProps {
     className?: string;
 }
 
-const COIN_ICONS: Record<CoinType, string> = {
-    pp: "💎",
-    gp: "🪙",
-    ep: "⚡",
-    sp: "🥈",
-    cp: "🟤",
+const COIN_ICONS: Record<CoinType, React.ReactNode> = {
+    pp: <div title="Platinum" className="w-3 h-3 rounded-full bg-platinum border border-foreground/20 shadow-sm inline-block" />,
+    gp: <div title="Gold" className="w-3 h-3 rounded-full bg-gold border border-background shadow-sm inline-block" />,
+    ep: <div title="Electrum" className="w-3 h-3 rounded-full bg-electrum border border-background shadow-sm inline-block" />,
+    sp: <div title="Silver" className="w-3 h-3 rounded-full bg-silver-coin border border-background shadow-sm inline-block" />,
+    cp: <div title="Copper" className="w-3 h-3 rounded-full bg-copper border border-background shadow-sm inline-block" />,
 };
 
 /** How many copper pieces each coin is worth */

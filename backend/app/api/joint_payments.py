@@ -126,6 +126,9 @@ async def create_joint_payment_as_player(
             detail="Payment amount must be positive",
         )
 
+    # De-duplicate characters to avoid overcharging and incorrect split math
+    unique_character_ids = list(set(body.character_ids))
+
     # Validate receiver if paying a party member
     if body.receiver_character_id is not None:
         receiver = session.get(Character, body.receiver_character_id)
@@ -135,7 +138,7 @@ async def create_joint_payment_as_player(
                 detail="Receiver character not found in this party",
             )
         # Receiver cannot also be a participant (they receive, not pay)
-        if body.receiver_character_id in body.character_ids:
+        if body.receiver_character_id in unique_character_ids:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Receiver cannot also be a participant in the split",
@@ -143,7 +146,7 @@ async def create_joint_payment_as_player(
 
     # Validate all participants exist in the party
     participant_chars = []
-    for char_id in body.character_ids:
+    for char_id in unique_character_ids:
         char = session.get(Character, char_id)
         if not char or char.party_id != party.id or not char.is_active:
             raise HTTPException(
@@ -214,6 +217,9 @@ async def create_joint_payment_as_dm(
             detail="Payment amount must be positive",
         )
 
+    # De-duplicate characters to avoid overcharging and incorrect split math
+    unique_character_ids = list(set(body.character_ids))
+
     # Validate receiver if paying a party member
     if body.receiver_character_id is not None:
         receiver = session.get(Character, body.receiver_character_id)
@@ -222,14 +228,14 @@ async def create_joint_payment_as_dm(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Receiver character not found in this party",
             )
-        if body.receiver_character_id in body.character_ids:
+        if body.receiver_character_id in unique_character_ids:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Receiver cannot also be a participant in the split",
             )
 
     participant_chars = []
-    for char_id in body.character_ids:
+    for char_id in unique_character_ids:
         char = session.get(Character, char_id)
         if not char or char.party_id != party.id or not char.is_active:
             raise HTTPException(

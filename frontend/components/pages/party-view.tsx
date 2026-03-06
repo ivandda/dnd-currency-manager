@@ -11,7 +11,7 @@ import type {
     JointPaymentResponse,
     CoinType,
 } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -23,24 +23,40 @@ import { CoinDisplay } from "@/components/coin-display";
 import { CoinInput } from "@/components/coin-input";
 import { usePartySSE } from "@/hooks/use-party-sse";
 import { toast } from "sonner";
+import {
+    Castle, CircleDollarSign, Handshake, Scroll, Shield, Check, Crown, ArrowLeft,
+    Zap, Gem, ArrowUpRight, Store, PlusCircle, Copy, Archive, Settings, Plus, Minus, X, Sun, Moon
+} from "lucide-react";
 
 interface PartyViewProps {
     partyCode: string;
     onBack: () => void;
 }
 
+/** Simple hook for window width reactivity */
+function useWindowWidth() {
+    const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1024);
+    useEffect(() => {
+        const handleResize = () => setWidth(window.innerWidth);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+    return width;
+}
+
 const TABS = ["party", "treasury", "splits", "history"] as const;
 type TabId = (typeof TABS)[number];
-const TAB_LABELS: Record<TabId, string> = {
-    party: "🏰 Party",
-    treasury: "🪙 Treasury",
-    splits: "🤝 Splits",
-    history: "📜 History",
+const TAB_LABELS: Record<TabId, { text: string; icon: React.ElementType }> = {
+    party: { text: "Party", icon: Castle },
+    treasury: { text: "Treasury", icon: CircleDollarSign },
+    splits: { text: "Splits", icon: Handshake },
+    history: { text: "History", icon: Scroll },
 };
 
 export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     const { user } = useAuth();
     const { theme, toggleTheme } = useTheme();
+    const width = useWindowWidth();
     const [party, setParty] = useState<PartyDetail | null>(null);
     const [transactions, setTransactions] = useState<TransactionResponse[]>([]);
     const [jointPayments, setJointPayments] = useState<JointPaymentResponse[]>([]);
@@ -97,41 +113,29 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
         }
     });
 
-    // Swipe handling for tab navigation
-    const handleTouchStart = (e: React.TouchEvent) => {
-        touchStartX.current = e.touches[0].clientX;
-        // Pull-to-refresh: track vertical start
-        const scrollTop = contentRef.current?.scrollTop ?? 0;
-        if (scrollTop <= 0) {
-            pullStartY.current = e.touches[0].clientY;
+    const pendingCount = jointPayments.filter((p) => p.status === "pending").length;
+
+    // --- PULL-TO-REFRESH ---
+    const onTouchStart = (e: React.TouchEvent) => {
+        if (contentRef.current?.scrollTop === 0) {
+            pullStartY.current = e.touches[0].pageY;
             isPulling.current = true;
         }
     };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
+    const onTouchMove = (e: React.TouchEvent) => {
         if (!isPulling.current) return;
-        const dy = e.touches[0].clientY - pullStartY.current;
-        if (dy > 0 && !isRefreshing) {
-            setPullDistance(Math.min(dy * 0.5, 80));
+        const currentY = e.touches[0].pageY;
+        const diff = currentY - pullStartY.current;
+        if (diff > 0) {
+            setPullDistance(Math.min(diff * 0.4, 80));
         }
     };
-
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        // Horizontal swipe for tab navigation
-        const diffX = touchStartX.current - e.changedTouches[0].clientX;
-        if (Math.abs(diffX) > 60) {
-            const idx = TABS.indexOf(activeTab);
-            if (diffX > 0 && idx < TABS.length - 1) setActiveTab(TABS[idx + 1]);
-            if (diffX < 0 && idx > 0) setActiveTab(TABS[idx - 1]);
-        }
-
-        // Pull-to-refresh
-        if (isPulling.current && pullDistance > 50 && !isRefreshing) {
+    const onTouchEnd = () => {
+        if (pullDistance > 60) {
             setIsRefreshing(true);
             loadAll().finally(() => {
                 setIsRefreshing(false);
                 setPullDistance(0);
-                toast.success("Refreshed! 🔄");
             });
         } else {
             setPullDistance(0);
@@ -139,157 +143,221 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
         isPulling.current = false;
     };
 
-    if (loading || !party) {
+    if (loading && !party) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <p className="text-muted-foreground animate-fade-in">Loading...</p>
+            <div className="h-screen flex items-center justify-center bg-background">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                    <p className="text-gold font-medium animate-pulse">Consulting the Scrolls...</p>
+                </div>
             </div>
         );
     }
 
-    const pendingCount = jointPayments.filter((p) => {
-        if (p.status !== "pending") return false;
-        if (isDM) return true;
-        if (!myCharacter) return false;
-        if (p.creator_character_id === myCharacter.id) return true;
-        return p.participants.some(
-            (pt) => pt.character_id === myCharacter.id && !pt.has_accepted
-        );
-    }).length;
+    if (!party) return <div>Party not found</div>;
 
     return (
-        <div className="min-h-screen flex flex-col pb-16">
+        <div className="h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden">
             {/* Header */}
-            <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-                <div className="max-w-lg mx-auto px-4 py-2.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <button onClick={onBack} className="text-muted-foreground hover:text-foreground text-sm shrink-0">
-                            ← Back
+            <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm shrink-0 z-50 flex flex-col">
+                <div className="w-full px-6 md:px-10 lg:px-16 py-2.5 flex items-center justify-between gap-4">
+                    <div className="flex items-center min-w-0 shrink">
+                        <button onClick={onBack} className="text-muted-foreground hover:text-foreground text-sm shrink-0 flex items-center gap-1">
+                            <ArrowLeft className="w-4 h-4" /> Back
                         </button>
-                        <h1 className="text-base font-bold text-dnd-red truncate">{party.name}</h1>
+                        <Separator orientation="vertical" className="h-5 mx-2 sm:mx-3 bg-border/40" />
+                        <div className="flex flex-col min-w-0">
+                            <h1 className="text-base sm:text-lg font-bold text-dnd-red truncate glow-red-sm leading-tight">
+                                {party.name}
+                            </h1>
+                            <div className="flex items-center gap-1.5 overflow-hidden">
+                                <span className="text-[10px] sm:text-xs font-mono text-muted-foreground tracking-widest uppercase opacity-70">
+                                    Code:
+                                </span>
+                                <span className="text-[10px] sm:text-xs font-mono font-bold text-primary tracking-wider truncate">
+                                    {partyCode}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                         <button
                             onClick={toggleTheme}
-                            className="text-sm px-2 py-1 rounded-md bg-secondary/40 hover:bg-secondary/60 transition-colors"
-                            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+                            className="p-2 rounded-full hover:bg-secondary/20 transition-colors"
+                            aria-label="Toggle theme"
                         >
-                            {theme === "dark" ? "☀️" : "🌙"}
+                            {theme === "dark" ? <Sun className="w-4 h-4 text-gold" /> : <Moon className="w-4 h-4 text-blue-600" />}
                         </button>
-                        <CopyBadge text={party.code} />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2.5 sm:px-3 text-xs border-border/40 hover:bg-secondary/20 font-semibold shadow-sm"
+                            onClick={loadAll}
+                            disabled={isRefreshing}
+                        >
+                            {isRefreshing ? <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin mr-1.5" /> : null}
+                            <span className="hidden sm:inline">Refresh</span>
+                            <span className="sm:hidden">↻</span>
+                        </Button>
                     </div>
                 </div>
             </header>
 
-            {/* Tab Bar */}
-            <div className="border-b border-border/30 bg-card/30 sticky top-[49px] z-30">
-                <div className="max-w-lg mx-auto px-2 flex">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`flex-1 py-3 text-xs sm:text-sm font-medium text-center transition-colors relative ${activeTab === tab
-                                ? "text-dnd-red"
-                                : "text-muted-foreground hover:text-foreground"
-                                }`}
-                        >
-                            {TAB_LABELS[tab]}
-                            {tab === "splits" && pendingCount > 0 && (
-                                <span className="absolute -top-0.5 right-1 bg-dnd-red text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center">
-                                    {pendingCount}
-                                </span>
-                            )}
-                            {activeTab === tab && (
-                                <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-dnd-red rounded-full" />
-                            )}
-                        </button>
-                    ))}
+            {/* Desktop / Mobile Dual Layout */}
+            <div className="flex-1 flex flex-col md:flex-row w-full overflow-hidden relative">
+
+                {/* --- MOBILE TAB BAR (Hidden on md+) --- */}
+                <div className="md:hidden border-b border-border/30 bg-card/30 shrink-0 z-30">
+                    <div className="w-full px-2 flex">
+                        {TABS.map((tab) => {
+                            const Icon = TAB_LABELS[tab].icon;
+                            const isSelected = activeTab === tab;
+                            return (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`flex-1 py-3 flex flex-col items-center gap-0.5 transition-all relative ${isSelected ? "text-dnd-red" : "text-muted-foreground"}`}
+                                >
+                                    <Icon className="w-5 h-5" />
+                                    <span className="text-[10px] font-medium uppercase tracking-tighter">{TAB_LABELS[tab].text}</span>
+                                    {isSelected && <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-dnd-red rounded-t-full" />}
+                                    {tab === "splits" && pendingCount > 0 && (
+                                        <span className="absolute top-1 right-1/4 bg-dnd-red text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center border-2 border-background">
+                                            {pendingCount}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
+
+                {/* --- LEFT SIDEBAR: PARTY INFO (Desktop persistent, Mobile activeTab only) --- */}
+                <aside className={`${activeTab === "party" ? "flex" : "hidden"} md:flex flex-col w-full md:w-80 lg:w-96 shrink-0 md:border-r border-border/30 bg-card/10 overflow-hidden relative`}>
+                    <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-4 md:py-6 pb-6 mt-1.5">
+                        <PartyTab
+                            party={party}
+                            isDM={isDM}
+                            myCharacter={myCharacter}
+                            partyCode={partyCode}
+                            onRefresh={loadAll}
+                            onBack={onBack}
+                        />
+                    </div>
+                </aside>
+
+                {/* --- MAIN CONTENT AREA (Tabs for Desktop, Conditional for Mobile) --- */}
+                <main className={`flex-1 flex flex-col overflow-hidden bg-background ${activeTab === "party" ? "hidden md:flex" : "flex"}`}>
+                    {/* Pull-to-refresh indicator (mobile only) */}
+                    {pullDistance > 0 && (
+                        <div
+                            className="pull-indicator flex items-center justify-center text-muted-foreground text-xs bg-background/50 backdrop-blur-sm py-2 shrink-0 border-b border-border/20 z-40"
+                            style={{ height: pullDistance, opacity: Math.min(pullDistance / 50, 1) }}
+                        >
+                            {pullDistance > 50 ? "Release to refresh ↻" : "Pull to refresh ↓"}
+                        </div>
+                    )}
+
+                    {/* Desktop Tab Bar (Excludes Party Tab) */}
+                    <div className="hidden md:flex border-b border-border/30 bg-card/60 backdrop-blur-md shrink-0 z-30 justify-start">
+                        <div className="w-full px-8 md:px-12 lg:px-16 flex">
+                            {TABS.filter(t => t !== "party").map((tab) => {
+                                const Icon = TAB_LABELS[tab].icon;
+                                const isSelected = activeTab === tab || (activeTab === "party" && tab === "treasury"); // Fallback for desktop when state is 'party'
+                                return (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        className={`flex-1 overflow-hidden py-3.5 text-sm font-medium text-center transition-all relative ${isSelected
+                                            ? "text-dnd-red"
+                                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/20"
+                                            }`}
+                                    >
+                                        <div className="flex items-center justify-center gap-1.5">
+                                            <Icon className="w-4 h-4" />
+                                            <span>{TAB_LABELS[tab].text}</span>
+                                        </div>
+                                        {tab === "splits" && pendingCount > 0 && (
+                                            <span className="absolute top-1/2 -translate-y-1/2 right-[10%] bg-dnd-red text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                                                {pendingCount}
+                                            </span>
+                                        )}
+                                        {isSelected && (
+                                            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-dnd-red" />
+                                        )}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Scrollable Content Container */}
+                    <div className="flex-1 overflow-y-auto w-full relative">
+                        {/* Tab Content Wrapper */}
+                        <div className="w-full px-8 md:px-12 lg:px-16 py-4 md:py-6 pb-6 animate-fade-in">
+                            {(activeTab === "treasury" || (activeTab === "party" && width >= 768)) && (
+                                <TreasuryTab
+                                    party={party}
+                                    isDM={isDM}
+                                    myCharacter={myCharacter}
+                                    partyCode={partyCode}
+                                    enabledCoins={enabledCoins}
+                                    onRefresh={loadAll}
+                                />
+                            )}
+                            {activeTab === "splits" && (
+                                <SplitsTab
+                                    partyCode={partyCode}
+                                    isDM={isDM}
+                                    myCharacter={myCharacter}
+                                    characters={party.characters.filter(c => c.is_active)}
+                                    enabledCoins={enabledCoins}
+                                    jointPayments={jointPayments}
+                                    onRefresh={loadAll}
+                                />
+                            )}
+                            {activeTab === "history" && (
+                                <HistoryTab transactions={transactions} />
+                            )}
+                        </div>
+                    </div>
+                </main>
             </div>
 
-            {/* Pull-to-refresh indicator */}
-            {pullDistance > 0 && (
-                <div
-                    className="pull-indicator flex items-center justify-center text-muted-foreground text-xs"
-                    style={{ height: pullDistance, opacity: Math.min(pullDistance / 50, 1) }}
-                >
-                    {pullDistance > 50 ? "Release to refresh ↻" : "Pull to refresh ↓"}
-                </div>
-            )}
-
-            {/* Tab Content — swipeable */}
-            <main
-                ref={contentRef}
-                className="flex-1 max-w-lg mx-auto w-full px-4 py-4 animate-fade-in overflow-auto"
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-            >
-                {activeTab === "party" && (
-                    <PartyTab
-                        party={party}
-                        isDM={isDM}
-                        myCharacter={myCharacter}
-                        partyCode={partyCode}
-                        onRefresh={loadAll}
-                        onBack={onBack}
-                    />
-                )}
-                {activeTab === "treasury" && (
-                    <TreasuryTab
-                        party={party}
-                        isDM={isDM}
-                        myCharacter={myCharacter}
-                        partyCode={partyCode}
-                        enabledCoins={enabledCoins}
-                        onRefresh={loadAll}
-                    />
-                )}
-                {activeTab === "splits" && (
-                    <SplitsTab
-                        partyCode={partyCode}
-                        isDM={isDM}
-                        myCharacter={myCharacter}
-                        characters={party.characters.filter((c) => c.is_active)}
-                        enabledCoins={enabledCoins}
-                        jointPayments={jointPayments}
-                        onRefresh={loadAll}
-                    />
-                )}
-                {activeTab === "history" && (
-                    <HistoryTab transactions={transactions} />
-                )}
-            </main>
-
-            {/* Fixed Bottom Balance Bar */}
-            <div className="fixed bottom-0 left-0 right-0 border-t border-border/40 bg-card/90 backdrop-blur-sm z-50">
-                <div className="max-w-lg mx-auto px-4 py-2.5 flex items-center justify-between">
+            {/* Identity / Balance Footer */}
+            <footer className="bg-secondary/10 border-t border-border/20 shrink-0 z-50">
+                <div className="w-full px-8 md:px-12 lg:px-16 py-3 flex items-center justify-between">
                     {myCharacter ? (
                         <>
-                            <div className="flex items-center gap-2 min-w-0">
-                                <span className="text-xs text-muted-foreground shrink-0">{myCharacter.name}</span>
-                                <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <span className="text-sm font-semibold text-foreground truncate">{myCharacter.name}</span>
+                                <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4.5 bg-background/50 flex shrink-0">
                                     {myCharacter.character_class}
                                 </Badge>
                             </div>
-                            <CoinDisplay
-                                coins={myCharacter.balance_display}
-                                balanceCp={myCharacter.balance_cp}
-                                enabledCoins={enabledCoins}
-                                size="sm"
-                                interactive
-                                animated
-                            />
+                            <div className="flex shrink-0 ml-2">
+                                <CoinDisplay
+                                    coins={myCharacter.balance_display}
+                                    balanceCp={myCharacter.balance_cp}
+                                    enabledCoins={enabledCoins}
+                                    size="sm"
+                                    interactive
+                                    animated
+                                />
+                            </div>
                         </>
                     ) : isDM ? (
                         <div className="flex items-center gap-2 w-full justify-center">
-                            <span className="text-gold text-sm font-semibold">👑 Dungeon Master</span>
+                            <span className="text-gold text-sm font-semibold flex items-center gap-1.5 shrink-0"><Crown className="w-5 h-5" /> Dungeon Master</span>
                         </div>
                     ) : (
-                        <span className="text-xs text-muted-foreground">Not in this party</span>
+                        <div className="w-full text-center">
+                            <span className="text-sm text-muted-foreground shrink-0">Observer</span>
+                        </div>
                     )}
                 </div>
-            </div>
+            </footer>
         </div>
     );
 }
@@ -311,9 +379,10 @@ function CopyBadge({ text }: { text: string }) {
     return (
         <button
             onClick={handleCopy}
-            className="px-2 py-1 rounded-md text-xs font-mono bg-secondary/40 text-gold border border-border/30 hover:border-gold/30 transition-all"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono bg-secondary/40 text-gold border border-border/30 hover:border-gold/30 transition-all font-semibold"
         >
-            {copied ? "✓ Copied" : `Code: ${text}`}
+            {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+            {copied ? "Copied" : text}
         </button>
     );
 }
@@ -366,26 +435,72 @@ function PartyTab({
     party: PartyDetail; isDM: boolean; myCharacter: CharacterInParty | undefined;
     partyCode: string; onRefresh: () => void; onBack: () => void;
 }) {
-    const otherMembers = party.characters.filter(
-        (c) => c.is_active && c.id !== myCharacter?.id
-    );
+    const activeCharacters = party.characters.filter(c => c.is_active);
+
+    // Sort so myCharacter is first
+    const sortedMembers = [...activeCharacters].sort((a, b) => {
+        if (a.id === myCharacter?.id) return -1;
+        if (b.id === myCharacter?.id) return 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/?party=${partyCode}` : "";
 
     return (
-        <div className="space-y-4">
-            <h3 className="text-lg font-bold text-dnd-red">Party Members</h3>
+        <div className="space-y-3">
+            {/* Invite Instructions */}
+            <Card className="card-medieval bg-secondary/10 border-border/30 shadow-none">
+                <CardHeader className="p-2 pb-1 mt-1">
+                    <CardTitle className="text-sm flex items-center gap-1.5"><Castle className="w-4 h-4" /> Invite Players</CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 pt-0 space-y-1.5">
+                    <p className="text-xs text-muted-foreground leading-tight px-1 mb-1">
+                        Share this code or link with your players so they can join.
+                    </p>
+                    <div className="flex items-center gap-2 bg-background/50 border border-border/40 rounded-md p-1 px-1.5">
+                        <code className="text-[10px] sm:text-xs font-mono font-bold text-primary flex-1 tracking-wider pl-1">{partyCode}</code>
+                        <CopyBadge text={partyCode} />
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs h-7 bg-background border-border border-dashed shadow-sm"
+                        onClick={async () => {
+                            try { await navigator.clipboard.writeText(joinUrl); toast.success("Link copied!"); }
+                            catch { toast.error("Failed to copy link"); }
+                        }}
+                    >
+                        <Copy className="w-3 h-3 mr-1.5 opacity-70" /> Copy Full Invite Link
+                    </Button>
+                </CardContent>
+            </Card>
+
+            <h3 className="text-lg font-bold text-dnd-red pt-1 flex items-center gap-2 px-1">
+                <Shield className="w-4 h-4" /> Party Members
+            </h3>
             <div className="space-y-2">
-                {otherMembers.map((char) => (
+                {sortedMembers.map((char) => (
                     <div
                         key={char.id}
-                        className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-secondary/20 border border-border/20"
+                        className={`flex items-center justify-between py-2.5 px-3 rounded-lg border ${char.id === myCharacter?.id
+                            ? "bg-primary/10 border-primary/30 shadow-sm"
+                            : "bg-secondary/20 border-border/20"
+                            }`}
                     >
                         <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">{char.name}</p>
+                            <p className="font-medium text-sm truncate flex items-center gap-2">
+                                {char.name}
+                                {char.id === myCharacter?.id && (
+                                    <Badge variant="default" className="text-[10px] h-4 px-1.5 py-0 bg-primary/20 text-primary hover:bg-primary/30 border-none shadow-none font-bold">
+                                        You
+                                    </Badge>
+                                )}
+                            </p>
                             <p className="text-xs text-muted-foreground">{char.character_class}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                             <CoinDisplay coins={char.balance_display} size="sm" />
-                            {isDM && (
+                            {isDM && char.id !== myCharacter?.id && (
                                 <button
                                     onClick={async () => {
                                         if (!confirm(`Kick ${char.name}?`)) return;
@@ -403,7 +518,7 @@ function PartyTab({
                         </div>
                     </div>
                 ))}
-                {otherMembers.length === 0 && (
+                {sortedMembers.length === 0 && (
                     <EmptyState icon="shield" message="No adventurers yet — share the party code!" />
                 )}
             </div>
@@ -460,32 +575,52 @@ function UnifiedTransferCard({
     partyCode: string; myCharacter: CharacterInParty;
     otherCharacters: CharacterInParty[]; enabledCoins: CoinType[]; onDone: () => void;
 }) {
-    const [target, setTarget] = useState<TransferTarget>("member");
-    const [receiverId, setReceiverId] = useState<number | null>(null);
+    // "pay" covers sending to party member(s) and/or paying an NPC
+    // "receive" covers finding gold / adding to your own balance
+    const [actionType, setActionType] = useState<"pay" | "receive">("pay");
+    const [selectedReceiverIds, setSelectedReceiverIds] = useState<number[]>([]);
+    const [includeNpc, setIncludeNpc] = useState(false);
     const [amount, setAmount] = useState<Record<string, number>>({});
     const [reason, setReason] = useState("");
     const [sending, setSending] = useState(false);
+
+    const toggleReceiver = (id: number) => {
+        setSelectedReceiverIds(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (Object.keys(amount).length === 0) return toast.error("Enter an amount");
 
-        if (target === "member" && !receiverId) return toast.error("Select a recipient");
-        if (target === "npc" && !reason.trim()) return toast.error("Enter what you're buying");
+        if (actionType === "pay" && selectedReceiverIds.length === 0 && !includeNpc) {
+            return toast.error("Select at least one recipient");
+        }
+        if (includeNpc && !reason.trim()) return toast.error("Enter what you're buying");
 
         setSending(true);
         try {
-            if (target === "member") {
-                await transferApi.p2p(partyCode, receiverId!, amount, reason || undefined);
-                toast.success("Transfer complete! 🪙");
-            } else if (target === "npc") {
-                await transferApi.spend(partyCode, amount, reason);
-                toast.success("Purchase complete! 🛒");
+            if (actionType === "pay") {
+                if (selectedReceiverIds.length === 0 && includeNpc) {
+                    // Just NPC
+                    await transferApi.spend(partyCode, amount, reason);
+                    toast.success("Purchase complete!");
+                } else if (selectedReceiverIds.length === 1 && !includeNpc) {
+                    // Single person P2P
+                    await transferApi.p2p(partyCode, selectedReceiverIds[0], amount, reason || undefined);
+                    toast.success("Transfer complete!");
+                } else {
+                    // Multiple recipients or Multi + NPC
+                    await transferApi.distribute(partyCode, selectedReceiverIds, includeNpc, amount, reason || undefined);
+                    toast.success("Distribution complete!");
+                }
             } else {
                 await transferApi.selfAdd(partyCode, amount, reason || undefined);
-                toast.success("Funds added! 💰");
+                toast.success("Funds added!");
             }
-            setReceiverId(null);
+            setSelectedReceiverIds([]);
+            setIncludeNpc(false);
             setAmount({});
             setReason("");
             onDone();
@@ -500,94 +635,123 @@ function UnifiedTransferCard({
     return (
         <Card className="card-medieval">
             <CardHeader className="pb-3">
-                <CardTitle className="text-base text-gold">Move Coins</CardTitle>
+                <CardTitle className="text-base text-gold flex items-center gap-2">
+                    <CircleDollarSign className="w-5 h-5" /> Move Coins
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-1">
+                    Send money to party members, pay for items, or log new loot.
+                </CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Target selector */}
-                    <div className="flex gap-1.5">
-                        {([
-                            ["member", "💱 Send"] as const,
-                            ["npc", "🛒 NPC/Shop"] as const,
-                            ["self", "➕ Add to self"] as const,
-                        ]).map(([key, label]) => (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Action Type Segmented Control */}
+                    <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action</Label>
+                        <div className="flex gap-1.5 bg-secondary/10 p-1 rounded-lg border border-border/20">
                             <button
-                                key={key}
                                 type="button"
-                                onClick={() => { setTarget(key); setReceiverId(null); }}
-                                className={`flex-1 py-2.5 rounded-md text-xs font-medium transition-all ${target === key
-                                    ? "bg-primary/20 text-dnd-red border border-dnd-red/30"
-                                    : "bg-secondary/30 text-muted-foreground border border-transparent"
+                                onClick={() => { setActionType("pay"); setSelectedReceiverIds([]); setIncludeNpc(false); }}
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-all ${actionType === "pay"
+                                    ? "bg-card text-foreground shadow-sm border border-border/50"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/30"
                                     }`}
                             >
-                                {label}
+                                <ArrowUpRight className="w-4 h-4" /> Pay / Send
                             </button>
-                        ))}
+                            <button
+                                type="button"
+                                onClick={() => { setActionType("receive"); setSelectedReceiverIds([]); setIncludeNpc(false); }}
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-all ${actionType === "receive"
+                                    ? "bg-card text-foreground shadow-sm border border-border/50"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/30"
+                                    }`}
+                            >
+                                <PlusCircle className="w-4 h-4" /> Add Funds
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Recipient selector (send only) */}
-                    {target === "member" && (
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">To</Label>
+                    {/* Recipient Selector (Pay only) */}
+                    {actionType === "pay" && (
+                        <div className="space-y-2">
+                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recipient(s)</Label>
                             <div className="flex flex-wrap gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setIncludeNpc(!includeNpc)}
+                                    className={`px-3 py-2 rounded-md text-xs transition-all border flex items-center gap-1.5 ${includeNpc
+                                        ? "bg-primary/20 text-dnd-red border-dnd-red/30 shadow-sm"
+                                        : "bg-secondary/20 text-muted-foreground border-transparent hover:border-border/50 hover:bg-secondary/40"
+                                        }`}
+                                >
+                                    <Store className="w-3.5 h-3.5 opacity-70" />
+                                    NPC / Shop
+                                </button>
                                 {otherCharacters.map((c) => (
                                     <button
                                         key={c.id}
                                         type="button"
-                                        onClick={() => setReceiverId(c.id)}
-                                        className={`px-3 py-2 rounded-md text-xs transition-all ${receiverId === c.id
-                                            ? "bg-primary/20 text-dnd-red border border-dnd-red/30"
-                                            : "bg-secondary/30 text-muted-foreground border border-transparent"
+                                        onClick={() => toggleReceiver(c.id)}
+                                        className={`px-3 py-2 rounded-md text-xs transition-all border flex items-center gap-1.5 ${selectedReceiverIds.includes(c.id)
+                                            ? "bg-primary/20 text-dnd-red border-dnd-red/30 shadow-sm"
+                                            : "bg-secondary/20 text-muted-foreground border-transparent hover:border-border/50 hover:bg-secondary/40"
                                             }`}
                                     >
+                                        <Shield className="w-3.5 h-3.5 opacity-70" />
                                         {c.name}
                                     </button>
                                 ))}
-                                {otherCharacters.length === 0 && (
-                                    <p className="text-xs text-muted-foreground py-2">No other members</p>
-                                )}
                             </div>
+                            { (selectedReceiverIds.length + (includeNpc ? 1 : 0)) > 1 && (
+                                <p className="text-[10px] text-amber-500 font-medium italic mt-1">
+                                    Total amount will be split as evenly as possible among all {selectedReceiverIds.length + (includeNpc ? 1 : 0)} recipients. Any leftover copper that cannot be split exactly will remain with you.
+                                </p>
+                            ) }
                         </div>
                     )}
 
                     {/* Amount */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs">Amount</Label>
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            { (selectedReceiverIds.length + (includeNpc ? 1 : 0)) > 1 ? "Total Amount to Split" : "Amount" }
+                        </Label>
                         <CoinInput enabledCoins={enabledCoins} value={amount} onChange={setAmount} />
                     </div>
 
                     {/* Reason */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs">
-                            {target === "npc" ? "What are you buying? *" : "Reason (optional)"}
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            {includeNpc ? "What are you buying? *" : "Reason (optional)"}
                         </Label>
                         <Input
                             placeholder={
-                                target === "npc"
+                                includeNpc
                                     ? "Potion of Healing..."
-                                    : target === "self"
+                                    : actionType === "receive"
                                         ? "Found loot in a chest..."
                                         : "For that enchanted sword..."
                             }
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                             className="bg-secondary/20 border-border/30 h-10 text-sm"
-                            required={target === "npc"}
+                            required={includeNpc}
                         />
                     </div>
 
                     <Button
                         type="submit"
-                        className="w-full h-11 bg-primary text-primary-foreground font-medium"
+                        className="w-full h-12 bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 text-base transition-transform hover:scale-[1.02] active:scale-100"
                         disabled={sending}
                     >
                         {sending
                             ? "Processing..."
-                            : target === "member"
-                                ? "💱 Send Coins"
-                                : target === "npc"
-                                    ? "🛒 Spend Coins"
-                                    : "➕ Add Funds"}
+                            : actionType === "pay"
+                                ? (selectedReceiverIds.length + (includeNpc ? 1 : 0)) > 1
+                                    ? <><ArrowUpRight className="w-5 h-5" /> Distribute Coins</>
+                                    : includeNpc
+                                        ? <><Store className="w-5 h-5" /> Spend Coins</>
+                                        : <><ArrowUpRight className="w-5 h-5" /> Send Coins</>
+                                : <><PlusCircle className="w-5 h-5" /> Add Funds</>}
                     </Button>
                 </form>
             </CardContent>
@@ -604,8 +768,7 @@ function DMControls({
     const [selectedChars, setSelectedChars] = useState<number[]>([]);
     const [amount, setAmount] = useState<Record<string, number>>({});
     const [reason, setReason] = useState("");
-    const [isDeduction, setIsDeduction] = useState(false);
-    const [mode, setMode] = useState<"loot" | "god">("loot");
+    const [mode, setMode] = useState<"add" | "deduct">("add");
     const [sending, setSending] = useState(false);
 
     const toggleChar = (id: number) =>
@@ -617,14 +780,14 @@ function DMControls({
         if (Object.keys(amount).length === 0) return toast.error("Enter an amount");
         setSending(true);
         try {
-            if (mode === "loot") {
-                await transferApi.loot(partyCode, selectedChars, amount, reason || undefined);
-                toast.success("Loot distributed! 💰");
+            // Total amount is divided equally among selected characters.
+            // Remainder (if any) is not distributed.
+            if (mode === "add") {
+                await transferApi.loot(partyCode, selectedChars, amount, reason || undefined, false);
+                toast.success("Total funds added and divided equally!");
             } else {
-                for (const id of selectedChars) {
-                    await transferApi.godMode(partyCode, id, amount, isDeduction, reason || undefined);
-                }
-                toast.success(isDeduction ? "Funds deducted" : "Funds added");
+                await transferApi.loot(partyCode, selectedChars, amount, reason || undefined, true);
+                toast.success("Total funds deducted equally!");
             }
             setSelectedChars([]); setAmount({}); setReason(""); onDone();
         } catch (err: unknown) {
@@ -633,70 +796,77 @@ function DMControls({
     };
 
     return (
-        <Card className="card-medieval border-dnd-red/20">
-            <CardHeader className="pb-3">
-                <CardTitle className="text-base text-dnd-red">👑 DM Controls</CardTitle>
+        <Card className="card-medieval border-dnd-red/20 shadow-lg relative overflow-hidden">
+            {/* Subtle background glow to distinguish DM panel */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-dnd-red/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
+            <CardHeader className="pb-3 relative z-10">
+                <CardTitle className="text-base text-dnd-red flex items-center gap-2">
+                    <Crown className="w-5 h-5" /> Manage Coins
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-1">
+                    Directly oversee the economy. Changes log under your name.
+                </CardDescription>
             </CardHeader>
-            <CardContent>
-                {/* Mode toggle */}
-                <div className="flex gap-1.5 mb-4">
-                    <button type="button" onClick={() => { setMode("loot"); setIsDeduction(false); }}
-                        className={`flex-1 py-2.5 rounded-md text-xs font-medium transition-all ${mode === "loot" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30" : "bg-secondary/30 text-muted-foreground"}`}>
-                        💰 Loot
-                    </button>
-                    <button type="button" onClick={() => setMode("god")}
-                        className={`flex-1 py-2.5 rounded-md text-xs font-medium transition-all ${mode === "god" ? "bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/30" : "bg-secondary/30 text-muted-foreground"}`}>
-                        ⚡ God Mode
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
+            <CardContent className="relative z-10">
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Action Segmented Control */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs">Characters</Label>
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action Type</Label>
+                        <div className="flex gap-1.5 bg-secondary/10 p-1 rounded-lg border border-border/20 overflow-x-auto pb-2 sm:pb-1">
+                            {([
+                                ["add", "Add (Distribute)", Plus, "text-emerald-500"],
+                                ["deduct", "Deduct", Minus, "text-red-500"]
+                            ] as const).map(([key, label, Icon, colorClass]) => (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => setMode(key)}
+                                    className={`flex-1 min-w-[100px] flex items-center justify-center gap-1.5 py-2 px-2 rounded-md text-xs sm:text-sm font-medium transition-all ${mode === key
+                                        ? "bg-card text-foreground shadow-sm border border-border/50"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/30"
+                                        }`}
+                                >
+                                    <Icon className={`w-4 h-4 ${mode === key ? colorClass : ""}`} />
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Characters */}
+                    <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Affect Characters</Label>
                         <div className="flex flex-wrap gap-1.5">
                             {characters.map((c) => (
                                 <button key={c.id} type="button" onClick={() => toggleChar(c.id)}
-                                    className={`px-3 py-2 rounded-md text-xs transition-all ${selectedChars.includes(c.id) ? "bg-primary/20 text-dnd-red border border-dnd-red/30" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
+                                    className={`px-3 py-2 rounded-md text-xs transition-all border ${selectedChars.includes(c.id) ? "bg-primary/20 text-dnd-red border-dnd-red/30 shadow-sm" : "bg-secondary/20 text-muted-foreground border-transparent hover:border-border/50"}`}>
                                     {c.name}
                                 </button>
                             ))}
-                            {mode === "loot" && (
-                                <button type="button"
-                                    onClick={() => setSelectedChars(selectedChars.length === characters.length ? [] : characters.map((c) => c.id))}
-                                    className="px-3 py-2 rounded-md text-[10px] bg-secondary/20 text-muted-foreground">
-                                    {selectedChars.length === characters.length ? "None" : "All"}
-                                </button>
-                            )}
+                            <button type="button"
+                                onClick={() => setSelectedChars(selectedChars.length === characters.length ? [] : characters.map((c) => c.id))}
+                                className="px-3 py-2 rounded-md text-[10px] bg-secondary/10 hover:bg-secondary/20 border border-border/30 text-muted-foreground font-medium uppercase min-w-[50px]">
+                                {selectedChars.length === characters.length ? "None" : "All"}
+                            </button>
                         </div>
                     </div>
 
-                    {mode === "god" && (
-                        <div className="flex gap-1.5">
-                            <button type="button" onClick={() => setIsDeduction(false)}
-                                className={`flex-1 py-2 rounded-md text-xs ${!isDeduction ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30" : "bg-secondary/30 text-muted-foreground"}`}>
-                                ➕ Add
-                            </button>
-                            <button type="button" onClick={() => setIsDeduction(true)}
-                                className={`flex-1 py-2 rounded-md text-xs ${isDeduction ? "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30" : "bg-secondary/30 text-muted-foreground"}`}>
-                                ➖ Deduct
-                            </button>
-                        </div>
-                    )}
-
+                    {/* Amount */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs">Amount {mode === "loot" && "(each)"}</Label>
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Amount</Label>
                         <CoinInput enabledCoins={enabledCoins} value={amount} onChange={setAmount} />
                     </div>
 
+                    {/* Reason */}
                     <div className="space-y-1.5">
-                        <Label className="text-xs">Reason (optional)</Label>
-                        <Input placeholder={mode === "loot" ? "Dragon treasure..." : "Divine intervention..."}
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reason (optional)</Label>
+                        <Input placeholder={mode === "deduct" ? "Divine intervention..." : "Dragon treasure..."}
                             value={reason} onChange={(e) => setReason(e.target.value)}
                             className="bg-secondary/20 border-border/30 h-10 text-sm" />
                     </div>
 
-                    <Button type="submit" className={`w-full h-11 font-medium ${isDeduction ? "bg-destructive text-white" : "bg-primary text-primary-foreground"}`} disabled={sending}>
-                        {sending ? "..." : mode === "loot" ? "💰 Distribute Loot" : isDeduction ? "➖ Deduct" : "➕ Add Funds"}
+                    <Button type="submit" className={`w-full h-12 font-semibold text-base transition-transform hover:scale-[1.02] active:scale-100 flex items-center justify-center gap-2 ${mode === "deduct" ? "bg-destructive text-white hover:bg-destructive/90" : "bg-primary text-primary-foreground hover:bg-primary/90"}`} disabled={sending}>
+                        {sending ? "Processing..." : mode === "deduct" ? <><Minus className="w-5 h-5" /> Deduct Total Equally</> : <><Plus className="w-5 h-5" /> Add Total Equally</>}
                     </Button>
                 </form>
             </CardContent>
@@ -762,8 +932,8 @@ function SplitsTab({
             {/* Create button */}
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                 <DialogTrigger asChild>
-                    <Button className="w-full h-11 bg-primary text-primary-foreground font-medium">
-                        🤝 Create New Split
+                    <Button className="w-full h-11 bg-primary text-primary-foreground font-medium flex items-center justify-center gap-2">
+                        <Handshake className="w-4 h-4" /> Create New Split
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="card-medieval border-border/40 sm:max-w-md">
@@ -771,15 +941,14 @@ function SplitsTab({
                         <DialogTitle className="text-dnd-red">Create Split Payment</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleCreate} className="space-y-4">
-                        {/* Pay to NPC or Member toggle */}
                         <div className="flex gap-1.5">
                             <button type="button" onClick={() => { setPayTarget("npc"); setReceiverId(null); }}
-                                className={`flex-1 py-2 rounded-md text-xs font-medium transition-all ${payTarget === "npc" ? "bg-primary/20 text-dnd-red border border-dnd-red/30" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
-                                🛒 Pay NPC
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-all border ${payTarget === "npc" ? "bg-primary/20 text-dnd-red border-dnd-red/30" : "bg-secondary/30 text-muted-foreground border-transparent"}`}>
+                                <Store className="w-3.5 h-3.5" /> Pay NPC
                             </button>
                             <button type="button" onClick={() => setPayTarget("member")}
-                                className={`flex-1 py-2 rounded-md text-xs font-medium transition-all ${payTarget === "member" ? "bg-primary/20 text-dnd-red border border-dnd-red/30" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
-                                💱 Pay Member
+                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-all border ${payTarget === "member" ? "bg-primary/20 text-dnd-red border-dnd-red/30" : "bg-secondary/30 text-muted-foreground border-transparent"}`}>
+                                <ArrowUpRight className="w-3.5 h-3.5" /> Pay Member
                             </button>
                         </div>
 
@@ -915,11 +1084,11 @@ function SplitCard({
                 </div>
 
                 {needsMyAction && (
-                    <div className="flex gap-2">
-                        <Button size="sm" className="flex-1 h-9 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30"
-                            onClick={() => onAction(payment.id, "accept")}>✓ Accept</Button>
-                        <Button size="sm" variant="outline" className="flex-1 h-9 text-red-600 dark:text-red-400 border-red-500/40 hover:bg-red-500/10"
-                            onClick={() => onAction(payment.id, "reject")}>✗ Reject</Button>
+                    <div className="flex gap-2 mt-2">
+                        <Button size="sm" className="flex-1 h-9 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30 flex items-center gap-1.5"
+                            onClick={() => onAction(payment.id, "accept")}><Check className="w-3.5 h-3.5" /> Accept</Button>
+                        <Button size="sm" variant="outline" className="flex-1 h-9 text-red-600 dark:text-red-400 border-red-500/40 hover:bg-red-500/10 flex items-center gap-1.5"
+                            onClick={() => onAction(payment.id, "reject")}><X className="w-3.5 h-3.5" /> Reject</Button>
                     </div>
                 )}
                 {canCancel && (
@@ -938,13 +1107,13 @@ function SplitCard({
    ============================================ */
 
 function HistoryTab({ transactions }: { transactions: TransactionResponse[] }) {
-    const labels: Record<string, { icon: string; label: string; color: string }> = {
-        transfer: { icon: "💱", label: "Transfer", color: "text-blue-600 dark:text-blue-400" },
-        dm_grant: { icon: "💰", label: "DM Loot", color: "text-emerald-600 dark:text-emerald-400" },
-        dm_deduct: { icon: "⚡", label: "DM Deduct", color: "text-red-600 dark:text-red-400" },
-        joint_payment: { icon: "🤝", label: "Split", color: "text-amber-600 dark:text-amber-400" },
-        spend: { icon: "🛒", label: "NPC Purchase", color: "text-copper" },
-        self_add: { icon: "➕", label: "Self Add", color: "text-emerald-500 dark:text-emerald-300" },
+    const labels: Record<string, { icon: React.ElementType; label: string; color: string }> = {
+        transfer: { icon: ArrowUpRight, label: "Transfer", color: "text-blue-600 dark:text-blue-400" },
+        dm_grant: { icon: CircleDollarSign, label: "DM Loot", color: "text-emerald-600 dark:text-emerald-400" },
+        dm_deduct: { icon: Zap, label: "DM Deduct", color: "text-red-600 dark:text-red-400" },
+        joint_payment: { icon: Handshake, label: "Split", color: "text-amber-600 dark:text-amber-400" },
+        spend: { icon: Store, label: "NPC Purchase", color: "text-copper" },
+        self_add: { icon: Plus, label: "Self Add", color: "text-emerald-500 dark:text-emerald-300" },
     };
 
     return (
@@ -959,7 +1128,7 @@ function HistoryTab({ transactions }: { transactions: TransactionResponse[] }) {
                             <div key={txn.id} className="flex items-start justify-between py-2.5 px-3 rounded-lg hover:bg-secondary/10 transition-colors">
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1.5">
-                                        <span className="text-xs">{info.icon}</span>
+                                        <info.icon className={`w-3.5 h-3.5 ${info.color}`} />
                                         <span className={`text-xs font-medium ${info.color}`}>{info.label}</span>
                                     </div>
                                     <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
@@ -1007,18 +1176,19 @@ function PartySettings({
     return (
         <Card className="card-medieval border-dnd-red/20 mt-4">
             <CardHeader className="pb-3">
-                <CardTitle className="text-base text-dnd-red">⚙️ Settings</CardTitle>
+                <CardTitle className="text-base text-dnd-red flex gap-2 items-center"><Settings className="w-5 h-5" /> Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
                 <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Coins</Label>
                     <div className="flex flex-wrap gap-1.5">
-                        {([["use_gold", party.use_gold, "🪙 Gold", "text-gold"] as const,
-                        ["use_electrum", party.use_electrum, "⚡ Electrum", "text-electrum"] as const,
-                        ["use_platinum", party.use_platinum, "💎 Platinum", "text-platinum"] as const,
-                        ]).map(([key, on, label, color]) => (
+                        {([["use_gold", party.use_gold, "Gold", "text-gold", CircleDollarSign] as const,
+                        ["use_electrum", party.use_electrum, "Electrum", "text-electrum", Zap] as const,
+                        ["use_platinum", party.use_platinum, "Platinum", "text-platinum", Gem] as const,
+                        ]).map(([key, on, label, color, Icon]) => (
                             <button key={key} disabled={saving} onClick={() => toggleCoin(key, !on)}
-                                className={`px-3 py-2 rounded-md text-xs font-medium transition-all ${on ? `bg-primary/20 ${color} border border-current/30` : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
+                                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all border ${on ? `bg-primary/20 ${color} border-current/30` : "bg-secondary/30 text-muted-foreground border-transparent hover:border-border/50"}`}>
+                                <Icon className="w-3.5 h-3.5" />
                                 {label}
                             </button>
                         ))}
@@ -1028,13 +1198,13 @@ function PartySettings({
                 <Separator className="bg-border/20" />
                 {party.is_active && (
                     <Button variant="outline" size="sm"
-                        className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 h-9 text-xs"
+                        className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 h-9 text-xs flex items-center justify-center gap-2"
                         onClick={async () => {
                             if (!confirm("Archive this party?")) return;
                             try { await partyApi.archive(partyCode); toast.success("Archived"); onBack(); }
                             catch { toast.error("Failed"); }
                         }}>
-                        🗄️ Archive Party
+                        <Archive className="w-4 h-4" /> Archive Party
                     </Button>
                 )}
             </CardContent>
