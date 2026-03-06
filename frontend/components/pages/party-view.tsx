@@ -172,48 +172,10 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                         </button>
                         <Separator orientation="vertical" className="h-5 mx-2 sm:mx-3 bg-border/40" />
 
-                        <h1 className="text-base font-bold text-dnd-red truncate shrink-0 max-w-[100px] sm:max-w-[200px] lg:max-w-none">{party.name}</h1>
-                        <Separator orientation="vertical" className="h-5 mx-2 sm:mx-3 bg-border/40" />
-
-                        {/* Integrated Identity */}
-                        {myCharacter ? (
-                            <div className="flex items-center gap-2 min-w-0">
-                                <span className="text-sm font-semibold text-foreground truncate">{myCharacter.name}</span>
-                                <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4 bg-background/50 hidden sm:inline-flex shrink-0">
-                                    {myCharacter.character_class}
-                                </Badge>
-                                <span className="text-muted-foreground/40 hidden sm:inline px-1">•</span>
-                                <div className="hidden sm:flex">
-                                    <CoinDisplay
-                                        coins={myCharacter.balance_display}
-                                        balanceCp={myCharacter.balance_cp}
-                                        enabledCoins={enabledCoins}
-                                        size="sm"
-                                        interactive
-                                        animated
-                                    />
-                                </div>
-                            </div>
-                        ) : isDM ? (
-                            <span className="text-gold text-sm font-semibold flex items-center gap-1.5 shrink-0"><Crown className="w-4 h-4" /> <span className="hidden sm:inline">Dungeon Master</span><span className="sm:hidden">DM</span></span>
-                        ) : (
-                            <span className="text-sm text-muted-foreground shrink-0">Observer</span>
-                        )}
+                        <h1 className="text-base font-bold text-dnd-red break-words">{party.name}</h1>
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
-                        {myCharacter && (
-                            <div className="flex sm:hidden">
-                                <CoinDisplay
-                                    coins={myCharacter.balance_display}
-                                    balanceCp={myCharacter.balance_cp}
-                                    enabledCoins={enabledCoins}
-                                    size="sm"
-                                    interactive
-                                    animated
-                                />
-                            </div>
-                        )}
                         <button
                             onClick={toggleTheme}
                             className="text-muted-foreground hover:text-foreground p-1.5 rounded-md bg-secondary/20 hover:bg-secondary/40 transition-colors flex items-center justify-center"
@@ -357,6 +319,40 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                     </div>
                 </main>
             </div>
+
+            {/* Identity / Balance Footer */}
+            <footer className="bg-secondary/10 border-t border-border/20 shrink-0 z-50">
+                <div className="max-w-[1200px] mx-auto w-full px-4 py-3 flex items-center justify-between">
+                    {myCharacter ? (
+                        <>
+                            <div className="flex items-center gap-3 min-w-0">
+                                <span className="text-sm font-semibold text-foreground truncate">{myCharacter.name}</span>
+                                <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4.5 bg-background/50 flex shrink-0">
+                                    {myCharacter.character_class}
+                                </Badge>
+                            </div>
+                            <div className="flex shrink-0 ml-2">
+                                <CoinDisplay
+                                    coins={myCharacter.balance_display}
+                                    balanceCp={myCharacter.balance_cp}
+                                    enabledCoins={enabledCoins}
+                                    size="sm"
+                                    interactive
+                                    animated
+                                />
+                            </div>
+                        </>
+                    ) : isDM ? (
+                        <div className="flex items-center gap-2 w-full justify-center">
+                            <span className="text-gold text-sm font-semibold flex items-center gap-1.5 shrink-0"><Crown className="w-5 h-5" /> Dungeon Master</span>
+                        </div>
+                    ) : (
+                        <div className="w-full text-center">
+                            <span className="text-sm text-muted-foreground shrink-0">Observer</span>
+                        </div>
+                    )}
+                </div>
+            </footer>
         </div>
     );
 }
