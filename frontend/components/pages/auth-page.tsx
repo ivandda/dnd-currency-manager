@@ -83,20 +83,20 @@ export default function AuthPage() {
                     </p>
                 </div>
 
-                <Card className="card-medieval">
-                    <Tabs defaultValue="login">
-                        <TabsList className="grid w-full grid-cols-2 bg-secondary/30">
-                            <TabsTrigger value="login" className="data-[state=active]:bg-primary/20 data-[state=active]:text-dnd-red transition-all">
-                                Enter the Tavern
-                            </TabsTrigger>
-                            <TabsTrigger value="register" className="data-[state=active]:bg-primary/20 data-[state=active]:text-dnd-red transition-all">
-                                Create Account
-                            </TabsTrigger>
-                        </TabsList>
+                <Tabs defaultValue="login" className="w-full">
+                    <TabsList className="flex w-full bg-transparent p-0 gap-1 sm:gap-2 h-12">
+                        <TabsTrigger value="login" className="flex-1 rounded-t-xl rounded-b-none bg-secondary/30 data-[state=active]:bg-card data-[state=active]:text-dnd-red transition-all text-sm sm:text-base h-full shadow-none border border-transparent data-[state=active]:border-border/40 data-[state=active]:border-b-card relative top-[1px] z-10 font-bold">
+                            Enter the Tavern
+                        </TabsTrigger>
+                        <TabsTrigger value="register" className="flex-1 rounded-t-xl rounded-b-none bg-secondary/30 data-[state=active]:bg-card data-[state=active]:text-dnd-red transition-all text-sm sm:text-base h-full shadow-none border border-transparent data-[state=active]:border-border/40 data-[state=active]:border-b-card relative top-[1px] z-10 font-bold">
+                            Create Account
+                        </TabsTrigger>
+                    </TabsList>
 
-                        <TabsContent value="login">
+                    <TabsContent value="login" className="mt-0">
+                        <Card className="card-medieval border-t border-border/40 rounded-t-none relative z-0 shadow-lg">
                             <form onSubmit={handleLogin}>
-                                <CardHeader className="pb-8 text-center pt-6">
+                                <CardHeader className="pb-8 text-center pt-8">
                                     <CardTitle className="text-dnd-red text-2xl">Welcome Back</CardTitle>
                                     <CardDescription className="text-base text-muted-foreground mt-2">Sign in to manage your fortune</CardDescription>
                                 </CardHeader>
@@ -133,11 +133,13 @@ export default function AuthPage() {
                                     </Button>
                                 </CardContent>
                             </form>
-                        </TabsContent>
+                        </Card>
+                    </TabsContent>
 
-                        <TabsContent value="register">
+                    <TabsContent value="register" className="mt-0">
+                        <Card className="card-medieval border-t border-border/40 rounded-t-none relative z-0 shadow-lg">
                             <form onSubmit={handleRegister}>
-                                <CardHeader className="pb-8 text-center pt-6">
+                                <CardHeader className="pb-8 text-center pt-8">
                                     <CardTitle className="text-dnd-red text-2xl">New Adventurer</CardTitle>
                                     <CardDescription className="text-base text-muted-foreground mt-2">Create your account to begin</CardDescription>
                                 </CardHeader>
@@ -188,9 +190,9 @@ export default function AuthPage() {
                                     </Button>
                                 </CardContent>
                             </form>
-                        </TabsContent>
-                    </Tabs>
-                </Card>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
             </div>
         </div>
     );

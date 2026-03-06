@@ -45,6 +45,27 @@ export default function DashboardPage() {
         try {
             const data = await partyApi.list();
             setParties(data);
+
+            // Check for party invite after loading parties
+            if (typeof window !== "undefined") {
+                const params = new URLSearchParams(window.location.search);
+                const inviteCode = params.get('party');
+                if (inviteCode) {
+                    // Remove ?party= from URL cleanly without reloading
+                    window.history.replaceState({}, '', '/');
+
+                    // Are they already in this party?
+                    const existingParty = data.find(p => p.code.toUpperCase() === inviteCode.toUpperCase());
+                    if (existingParty) {
+                        setSelectedParty(existingParty.code);
+                        toast.success("Welcome back to the party!");
+                    } else {
+                        // Not in the party, open join dialog
+                        setJoinCode(inviteCode.toUpperCase());
+                        setJoinOpen(true);
+                    }
+                }
+            }
         } catch {
             toast.error("Failed to load parties");
         } finally {
