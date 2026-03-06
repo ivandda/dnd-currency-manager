@@ -21,6 +21,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         // Read persisted theme on mount
         const stored = localStorage.getItem("theme") as Theme | null;
         if (stored === "light" || stored === "dark") {
+            // eslint-disable-next-line react-hooks/exhaustive-deps
             setTheme(stored);
             if (stored === "light") {
                 document.documentElement.classList.remove("dark");

@@ -41,7 +41,7 @@ app = FastAPI(
 # Devices connect via different IPs (localhost, 192.168.x.x, etc.)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
