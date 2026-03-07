@@ -217,6 +217,94 @@ class TestDistribute:
         assert response.status_code == 400
         assert "Insufficient funds" in response.json()["detail"]
 
+    def test_distribute_remainder_goes_to_random_recipient(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+        second_character: Character,
+        session: Session,
+    ):
+        response = client.post(
+            f"/api/parties/{test_party.code}/transfers/distribute",
+            json={
+                "character_ids": [second_character.id],
+                "include_npc": True,
+                "amount": {"cp": 101},
+                "reason": "Uneven split test",
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 201
+        data = response.json()
+
+        amounts = sorted(txn["amount_cp"] for txn in data)
+        assert amounts == [50, 51]
+        assert sum(amounts) == 101
+
+        session.refresh(test_character)
+        session.refresh(second_character)
+        assert test_character.balance_cp == 9899  # full total is deducted
+        assert second_character.balance_cp in (5050, 5051)
+
+    def test_distribute_tiny_amount_still_succeeds(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+        second_character: Character,
+        session: Session,
+    ):
+        response = client.post(
+            f"/api/parties/{test_party.code}/transfers/distribute",
+            json={
+                "character_ids": [second_character.id],
+                "include_npc": True,
+                "amount": {"cp": 1},
+                "reason": "Single copper split",
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data) == 1  # one recipient gets 1 CP, the other gets 0
+        assert data[0]["amount_cp"] == 1
+
+        session.refresh(test_character)
+        session.refresh(second_character)
+        assert test_character.balance_cp == 9999
+        assert second_character.balance_cp in (5000, 5001)
+
+    def test_distribute_deduplicates_recipient_ids(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+        second_character: Character,
+        session: Session,
+    ):
+        response = client.post(
+            f"/api/parties/{test_party.code}/transfers/distribute",
+            json={
+                "character_ids": [second_character.id, second_character.id, second_character.id],
+                "include_npc": False,
+                "amount": {"gp": 1},
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["amount_cp"] == 100
+
+        session.refresh(test_character)
+        session.refresh(second_character)
+        assert test_character.balance_cp == 9900
+        assert second_character.balance_cp == 5100
+
 
 class TestDMLoot:
     """Test DM granting money to players."""

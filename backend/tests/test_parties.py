@@ -231,6 +231,131 @@ class TestListParties:
         data = response.json()
         assert len(data) >= 1
 
+
+class TestMyCoinSettings:
+    """Test per-user-per-party coin settings."""
+
+    def test_member_can_update_own_coin_settings(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+    ):
+        response = client.patch(
+            f"/api/parties/{test_party.code}/my-coins",
+            json={"use_gold": False, "use_electrum": True},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["use_gold"] is False
+        assert data["use_electrum"] is True
+        assert data["use_platinum"] is False
+
+    def test_dm_can_update_own_coin_settings_without_character(
+        self,
+        client: TestClient,
+        dm_headers: dict,
+        test_party: Party,
+    ):
+        response = client.patch(
+            f"/api/parties/{test_party.code}/my-coins",
+            json={"use_platinum": True},
+            headers=dm_headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["use_platinum"] is True
+
+    def test_non_member_cannot_update_coin_settings(
+        self,
+        client: TestClient,
+        second_auth_headers: dict,
+        test_party: Party,
+    ):
+        response = client.patch(
+            f"/api/parties/{test_party.code}/my-coins",
+            json={"use_gold": False},
+            headers=second_auth_headers,
+        )
+        assert response.status_code == 403
+
+    def test_settings_are_isolated_per_user(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        second_auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+        second_character: Character,
+    ):
+        update = client.patch(
+            f"/api/parties/{test_party.code}/my-coins",
+            json={"use_gold": False, "use_platinum": True},
+            headers=auth_headers,
+        )
+        assert update.status_code == 200
+
+        me_detail = client.get(f"/api/parties/{test_party.code}", headers=auth_headers)
+        other_detail = client.get(f"/api/parties/{test_party.code}", headers=second_auth_headers)
+        assert me_detail.status_code == 200
+        assert other_detail.status_code == 200
+
+        assert me_detail.json()["my_coin_settings"] == {
+            "use_gold": False,
+            "use_electrum": False,
+            "use_platinum": True,
+        }
+        assert other_detail.json()["my_coin_settings"] == {
+            "use_gold": True,
+            "use_electrum": False,
+            "use_platinum": False,
+        }
+
+    def test_settings_are_isolated_per_party(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+        test_user: User,
+        test_dm: User,
+        session: Session,
+    ):
+        update = client.patch(
+            f"/api/parties/{test_party.code}/my-coins",
+            json={"use_gold": False, "use_platinum": True},
+            headers=auth_headers,
+        )
+        assert update.status_code == 200
+
+        second_party = Party(
+            name="Second Party",
+            code="AB12",
+            dm_id=test_dm.id,
+        )
+        session.add(second_party)
+        session.commit()
+        session.refresh(second_party)
+
+        second_char = Character(
+            name="Bilbo",
+            character_class="Rogue",
+            user_id=test_user.id,
+            party_id=second_party.id,
+            balance_cp=100,
+        )
+        session.add(second_char)
+        session.commit()
+
+        second_detail = client.get(f"/api/parties/{second_party.code}", headers=auth_headers)
+        assert second_detail.status_code == 200
+        assert second_detail.json()["my_coin_settings"] == {
+            "use_gold": True,
+            "use_electrum": False,
+            "use_platinum": False,
+        }
+
     def test_list_as_player(
         self,
         client: TestClient,

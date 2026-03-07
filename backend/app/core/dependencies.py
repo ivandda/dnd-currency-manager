@@ -111,3 +111,28 @@ def get_user_character_in_party(
             detail="You don't have an active character in this party",
         )
     return character
+
+
+def require_party_member_or_dm(
+    current_user: User = Depends(get_current_user),
+    party: Party = Depends(get_party_by_code),
+    session: Session = Depends(get_session),
+) -> User:
+    """Ensure the current user can access party data (DM or active member)."""
+    if party.dm_id == current_user.id:
+        return current_user
+
+    character = session.exec(
+        select(Character).where(
+            Character.user_id == current_user.id,
+            Character.party_id == party.id,
+            Character.is_active == True,  # noqa: E712
+        )
+    ).first()
+    if character:
+        return current_user
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="You are not a member of this party",
+    )

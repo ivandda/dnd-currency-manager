@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import { authApi, userApi, setAccessToken, getAccessToken } from "@/lib/api";
+import { authApi, userApi, setAccessToken } from "@/lib/api";
 import type { User } from "@/lib/types";
 
 interface AuthContextType {

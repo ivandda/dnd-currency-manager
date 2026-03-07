@@ -40,6 +40,7 @@ class PartyDetailResponse(PartyResponse):
     """Party details including character list."""
 
     dm_username: str
+    my_coin_settings: "CoinSettingsResponse"
     characters: list["CharacterInParty"] = []
 
 
@@ -65,8 +66,16 @@ class KickRequest(BaseModel):
 
 
 class PartyUpdateCoins(BaseModel):
-    """Request body for updating party coin configuration."""
+    """Request body for updating a user's coin settings."""
 
     use_gold: Optional[bool] = None
     use_electrum: Optional[bool] = None
     use_platinum: Optional[bool] = None
+
+
+class CoinSettingsResponse(BaseModel):
+    """Current user coin settings inside a party."""
+
+    use_gold: bool
+    use_electrum: bool
+    use_platinum: bool

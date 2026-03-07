@@ -38,7 +38,14 @@ export interface CharacterInParty {
 
 export interface PartyDetail extends Party {
     dm_username: string;
+    my_coin_settings: CoinSettings;
     characters: CharacterInParty[];
+}
+
+export interface CoinSettings {
+    use_gold: boolean;
+    use_electrum: boolean;
+    use_platinum: boolean;
 }
 
 export interface TransactionResponse {

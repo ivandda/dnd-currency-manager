@@ -41,7 +41,7 @@ export function CoinInput({ enabledCoins, value, onChange, className = "" }: Coi
     ];
 
     return (
-        <div className={`grid grid-cols-2 sm:grid-cols-3 gap-3 ${className}`}>
+        <div className={`grid grid-cols-3 gap-3 ${className}`}>
             {coins.map((coin) => {
                 const info = COIN_INFO[coin];
                 return (
