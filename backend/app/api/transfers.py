@@ -1,13 +1,12 @@
-"""Transfer endpoints: P2P, DM loot, DM god mode."""
+"""Transfer endpoints: P2P, distribution, DM controls, spend, and self-add."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session
 
-from app.core.currency import coins_to_cp, cp_to_breakdown
+from app.core.coin_preferences import CoinConfig, get_party_coin_config
+from app.core.currency import coins_to_cp, cp_to_breakdown, split_amount
 from app.core.database import get_session
 from app.core.dependencies import (
-    get_current_user,
-    get_party_by_code,
     get_user_character_in_party,
     require_active_party,
     require_dm,
@@ -31,14 +30,16 @@ router = APIRouter(prefix="/api/parties/{code}/transfers", tags=["transfers"])
 
 
 def _transaction_to_response(
-    txn: Transaction, party: Party, session: Session
+    txn: Transaction,
+    coin_settings: CoinConfig,
+    session: Session,
 ) -> TransactionResponse:
     """Convert a Transaction model to a response with display info."""
     breakdown = cp_to_breakdown(
         txn.amount_cp,
-        use_platinum=party.use_platinum,
-        use_gold=party.use_gold,
-        use_electrum=party.use_electrum,
+        use_platinum=coin_settings.use_platinum,
+        use_gold=coin_settings.use_gold,
+        use_electrum=coin_settings.use_electrum,
     )
 
     sender_name = None
@@ -55,9 +56,9 @@ def _transaction_to_response(
         transaction_type=txn.transaction_type,
         amount_cp=txn.amount_cp,
         amount_display=breakdown.to_display_dict(
-            use_platinum=party.use_platinum,
-            use_gold=party.use_gold,
-            use_electrum=party.use_electrum,
+            use_platinum=coin_settings.use_platinum,
+            use_gold=coin_settings.use_gold,
+            use_electrum=coin_settings.use_electrum,
         ),
         reason=txn.reason,
         timestamp=txn.timestamp,
@@ -76,7 +77,8 @@ async def transfer_p2p(
     session: Session = Depends(get_session),
 ):
     """Character-to-character transfer."""
-    # Calculate amount in copper
+    viewer_coin_settings = get_party_coin_config(session, party, sender_char.user_id)
+
     try:
         amount_cp = coins_to_cp(**body.amount)
     except ValueError as e:
@@ -88,7 +90,6 @@ async def transfer_p2p(
             detail="Transfer amount must be positive",
         )
 
-    # Validate receiver exists and is in the same party
     receiver = session.get(Character, body.receiver_id)
     if not receiver or receiver.party_id != party.id or not receiver.is_active:
         raise HTTPException(
@@ -102,14 +103,12 @@ async def transfer_p2p(
             detail="Cannot transfer to yourself",
         )
 
-    # Check sufficient funds
     if sender_char.balance_cp < amount_cp:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Insufficient funds",
         )
 
-    # Execute transfer
     sender_char.balance_cp -= amount_cp
     receiver.balance_cp += amount_cp
 
@@ -128,16 +127,19 @@ async def transfer_p2p(
     session.commit()
     session.refresh(txn)
 
-    # Broadcast SSE events
     await event_manager.broadcast(party.id, "transaction_new", {"transaction_id": txn.id})
-    await event_manager.broadcast(party.id, "balance_update", {
-        "character_id": sender_char.id, "balance_cp": sender_char.balance_cp
-    })
-    await event_manager.broadcast(party.id, "balance_update", {
-        "character_id": receiver.id, "balance_cp": receiver.balance_cp
-    })
+    await event_manager.broadcast(
+        party.id,
+        "balance_update",
+        {"character_id": sender_char.id, "balance_cp": sender_char.balance_cp},
+    )
+    await event_manager.broadcast(
+        party.id,
+        "balance_update",
+        {"character_id": receiver.id, "balance_cp": receiver.balance_cp},
+    )
 
-    return _transaction_to_response(txn, party, session)
+    return _transaction_to_response(txn, viewer_coin_settings, session)
 
 
 @router.post("/distribute", response_model=list[TransactionResponse], status_code=status.HTTP_201_CREATED)
@@ -148,7 +150,8 @@ async def transfer_distribute(
     session: Session = Depends(get_session),
 ):
     """Character distributes money among selected characters and/or NPC."""
-    # Calculate amount in copper
+    viewer_coin_settings = get_party_coin_config(session, party, sender_char.user_id)
+
     try:
         total_amount_cp = coins_to_cp(**body.amount)
     except ValueError as e:
@@ -160,17 +163,13 @@ async def transfer_distribute(
             detail="Distribution amount must be positive",
         )
 
-    # Check sufficient funds
     if sender_char.balance_cp < total_amount_cp:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Insufficient funds",
         )
 
-    # De-duplicate recipients to avoid overpaying and incorrect split math
-    unique_character_ids = list(set(body.character_ids))
-    
-    # Count recipients
+    unique_character_ids = list(dict.fromkeys(body.character_ids))
     recipients_count = len(unique_character_ids) + (1 if body.include_npc else 0)
     if recipients_count == 0:
         raise HTTPException(
@@ -178,23 +177,13 @@ async def transfer_distribute(
             detail="Must select at least one recipient (character or NPC)",
         )
 
-    # Calculate share (standard integer division)
-    split_amount_cp = total_amount_cp // recipients_count
-    if split_amount_cp <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Amount is too small to split among the selected recipients",
-        )
-
-    # Validate all recipient characters exist and are in the same party
-    receiver_chars = []
+    receiver_chars: list[Character] = []
     for char_id in unique_character_ids:
         if char_id == sender_char.id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot distribute to yourself",
             )
-        
         receiver = session.get(Character, char_id)
         if not receiver or receiver.party_id != party.id or not receiver.is_active:
             raise HTTPException(
@@ -203,20 +192,22 @@ async def transfer_distribute(
             )
         receiver_chars.append(receiver)
 
-    transactions = []
+    shares = split_amount(total_amount_cp, recipients_count)
+    character_shares = shares[: len(receiver_chars)]
+    npc_share_cp = shares[-1] if body.include_npc else 0
 
-    # 1. Update sender balance
-    # We deduct the total amount actually distributed (accounting for remainder)
-    actual_distributed_cp = split_amount_cp * recipients_count
-    sender_char.balance_cp -= actual_distributed_cp
+    sender_char.balance_cp -= total_amount_cp
     session.add(sender_char)
 
-    # 2. Process character recipients
-    for receiver in receiver_chars:
-        receiver.balance_cp += split_amount_cp
+    transactions: list[tuple[Transaction, int | None]] = []
+
+    for receiver, share_cp in zip(receiver_chars, character_shares):
+        if share_cp <= 0:
+            continue
+        receiver.balance_cp += share_cp
         txn = Transaction(
             transaction_type=TransactionType.TRANSFER,
-            amount_cp=split_amount_cp,
+            amount_cp=share_cp,
             reason=body.reason,
             party_id=party.id,
             sender_id=sender_char.id,
@@ -226,11 +217,10 @@ async def transfer_distribute(
         session.add(txn)
         transactions.append((txn, receiver.id))
 
-    # 3. Process NPC recipient if included
-    if body.include_npc:
+    if npc_share_cp > 0:
         txn = Transaction(
             transaction_type=TransactionType.SPEND,
-            amount_cp=split_amount_cp,
+            amount_cp=npc_share_cp,
             reason=body.reason,
             party_id=party.id,
             sender_id=sender_char.id,
@@ -241,22 +231,24 @@ async def transfer_distribute(
 
     session.commit()
 
-    # Finalize results and broadcast
-    results = []
+    results: list[TransactionResponse] = []
     for txn, char_id in transactions:
         session.refresh(txn)
-        results.append(_transaction_to_response(txn, party, session))
+        results.append(_transaction_to_response(txn, viewer_coin_settings, session))
         await event_manager.broadcast(party.id, "transaction_new", {"transaction_id": txn.id})
-        if char_id:
+        if char_id is not None:
             char = session.get(Character, char_id)
-            await event_manager.broadcast(party.id, "balance_update", {
-                "character_id": char_id, "balance_cp": char.balance_cp
-            })
+            await event_manager.broadcast(
+                party.id,
+                "balance_update",
+                {"character_id": char_id, "balance_cp": char.balance_cp},
+            )
 
-    # Always broadcast sender's new balance
-    await event_manager.broadcast(party.id, "balance_update", {
-        "character_id": sender_char.id, "balance_cp": sender_char.balance_cp
-    })
+    await event_manager.broadcast(
+        party.id,
+        "balance_update",
+        {"character_id": sender_char.id, "balance_cp": sender_char.balance_cp},
+    )
 
     return results
 
@@ -269,6 +261,8 @@ async def dm_loot(
     session: Session = Depends(get_session),
 ):
     """DM grants or deducts money evenly among characters from an infinite source."""
+    viewer_coin_settings = get_party_coin_config(session, party, dm_user.id)
+
     try:
         total_amount_cp = coins_to_cp(**body.amount)
     except ValueError as e:
@@ -280,26 +274,21 @@ async def dm_loot(
             detail="Amount must be positive",
         )
 
-    # De-duplicate characters to avoid overpaying/over-deducting and incorrect split math
-    unique_character_ids = list(set(body.character_ids))
+    unique_character_ids = list(dict.fromkeys(body.character_ids))
     if not unique_character_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Must select at least one character",
         )
 
-    # Split the total amount equally among all selected characters
-    # If it doesn't divide perfectly, the remainder is lost (standard integer division)
     split_amount_cp = total_amount_cp // len(unique_character_ids)
-
     if split_amount_cp <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Amount is too small to split among the selected characters.",
         )
 
-    # First pass: check if all characters exist, are active, and have sufficient funds if deducting
-    characters_to_update = []
+    characters_to_update: list[Character] = []
     for char_id in unique_character_ids:
         character = session.get(Character, char_id)
         if not character or character.party_id != party.id or not character.is_active:
@@ -307,16 +296,18 @@ async def dm_loot(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Character {char_id} not found in this party",
             )
-        
+
         if body.is_deduction and character.balance_cp < split_amount_cp:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Character {character.name} does not have enough funds for this deduction. They need {split_amount_cp} CP but have {character.balance_cp} CP.",
+                detail=(
+                    f"Character {character.name} does not have enough funds for this deduction. "
+                    f"They need {split_amount_cp} CP but have {character.balance_cp} CP."
+                ),
             )
         characters_to_update.append(character)
 
-    transactions = []
-
+    transactions: list[tuple[Transaction, Character]] = []
     for character in characters_to_update:
         if body.is_deduction:
             character.balance_cp -= split_amount_cp
@@ -330,23 +321,24 @@ async def dm_loot(
             amount_cp=split_amount_cp,
             reason=body.reason,
             party_id=party.id,
-            sender_id=None,  # DM = infinite source
+            sender_id=None,
             receiver_id=character.id,
         )
-
         session.add(character)
         session.add(txn)
         transactions.append((txn, character))
 
     session.commit()
 
-    results = []
+    results: list[TransactionResponse] = []
     for txn, character in transactions:
         session.refresh(txn)
-        results.append(_transaction_to_response(txn, party, session))
-        await event_manager.broadcast(party.id, "balance_update", {
-            "character_id": character.id, "balance_cp": character.balance_cp
-        })
+        results.append(_transaction_to_response(txn, viewer_coin_settings, session))
+        await event_manager.broadcast(
+            party.id,
+            "balance_update",
+            {"character_id": character.id, "balance_cp": character.balance_cp},
+        )
         await event_manager.broadcast(party.id, "transaction_new", {"transaction_id": txn.id})
 
     return results
@@ -360,6 +352,8 @@ async def dm_god_mode(
     session: Session = Depends(get_session),
 ):
     """DM directly adds or subtracts money from a character's wallet."""
+    viewer_coin_settings = get_party_coin_config(session, party, dm_user.id)
+
     try:
         amount_cp = coins_to_cp(**body.amount)
     except ValueError as e:
@@ -404,12 +398,14 @@ async def dm_god_mode(
     session.commit()
     session.refresh(txn)
 
-    await event_manager.broadcast(party.id, "balance_update", {
-        "character_id": character.id, "balance_cp": character.balance_cp
-    })
+    await event_manager.broadcast(
+        party.id,
+        "balance_update",
+        {"character_id": character.id, "balance_cp": character.balance_cp},
+    )
     await event_manager.broadcast(party.id, "transaction_new", {"transaction_id": txn.id})
 
-    return _transaction_to_response(txn, party, session)
+    return _transaction_to_response(txn, viewer_coin_settings, session)
 
 
 @router.post("/spend", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
@@ -420,6 +416,8 @@ async def spend_npc(
     session: Session = Depends(get_session),
 ):
     """Player spends money (NPC purchase, shop, toll, etc.)."""
+    viewer_coin_settings = get_party_coin_config(session, party, spender.user_id)
+
     try:
         amount_cp = coins_to_cp(**body.amount)
     except ValueError as e:
@@ -445,7 +443,7 @@ async def spend_npc(
         reason=body.reason,
         party_id=party.id,
         sender_id=spender.id,
-        receiver_id=None,  # Money leaves the economy (NPC)
+        receiver_id=None,
     )
 
     session.add(spender)
@@ -453,12 +451,14 @@ async def spend_npc(
     session.commit()
     session.refresh(txn)
 
-    await event_manager.broadcast(party.id, "balance_update", {
-        "character_id": spender.id, "balance_cp": spender.balance_cp
-    })
+    await event_manager.broadcast(
+        party.id,
+        "balance_update",
+        {"character_id": spender.id, "balance_cp": spender.balance_cp},
+    )
     await event_manager.broadcast(party.id, "transaction_new", {"transaction_id": txn.id})
 
-    return _transaction_to_response(txn, party, session)
+    return _transaction_to_response(txn, viewer_coin_settings, session)
 
 
 @router.post("/self-add", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
@@ -469,6 +469,8 @@ async def self_add(
     session: Session = Depends(get_session),
 ):
     """Player adds money to their own wallet (found loot, sold items, etc.)."""
+    viewer_coin_settings = get_party_coin_config(session, party, character.user_id)
+
     try:
         amount_cp = coins_to_cp(**body.amount)
     except ValueError as e:
@@ -496,9 +498,11 @@ async def self_add(
     session.commit()
     session.refresh(txn)
 
-    await event_manager.broadcast(party.id, "balance_update", {
-        "character_id": character.id, "balance_cp": character.balance_cp
-    })
+    await event_manager.broadcast(
+        party.id,
+        "balance_update",
+        {"character_id": character.id, "balance_cp": character.balance_cp},
+    )
     await event_manager.broadcast(party.id, "transaction_new", {"transaction_id": txn.id})
 
-    return _transaction_to_response(txn, party, session)
+    return _transaction_to_response(txn, viewer_coin_settings, session)

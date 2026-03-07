@@ -14,6 +14,7 @@ class Character(SQLModel, table=True):
     name: str = Field(min_length=1, max_length=100)
     character_class: str = Field(max_length=50)  # e.g. "Warrior", "Mage", "Rogue"
     balance_cp: int = Field(default=0)  # All currency stored as copper pieces
+    is_balance_public: bool = Field(default=True)
     is_active: bool = Field(default=True)  # False = left the party / archived
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

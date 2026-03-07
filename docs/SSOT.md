@@ -59,7 +59,9 @@ A Full-Stack web application designed to run on a Local Area Network (LAN) that 
   * **Reconnection:** Auto-reconnect with exponential backoff on the frontend.
 * **Network Auto-detection:** App includes a backend endpoint (`/api/network/lan-url`) and start script (`start.sh`) to automatically detect the host's actual LAN IP for easy sharing, bypassing Docker networking limitations.
 * **DM Dashboard:** The DM has a real-time overview of every character's wallet and balance in the Party.
+* **Per-User Coin Preferences:** Coin visibility (gold/electrum/platinum) is configured per user per party, not globally by DM.
 * **P2P Transfers:** Characters can send money to each other.
+* **Balance Privacy:** Each player can choose whether their wallet balance is visible to other players in that party. DM always sees all balances.
 * **NPC Spend:** Characters can spend money on NPC purchases (shops, tolls, etc.). Money leaves the economy.
 * **Self-Add Funds:** Players can add money to their own wallet (found loot, sold items) without DM approval. All self-adds are recorded in the immutable transaction history.
 * **Looting (DM to Players):** The DM can transfer funds to one or multiple players simultaneously. These funds are generated infinitely (they are not deducted from a DM wallet).
@@ -92,7 +94,7 @@ The application is **mobile-responsive** (players will use phones on the LAN).
 | Login | `/login` | Username + password |
 | Register | `/register` | Create account |
 | Dashboard | `/` | List of user's characters + parties |
-| Create Party | `/party/create` | DM creates a new party (name + coin config) |
+| Create Party | `/party/create` | DM creates a new party (name only) |
 | Join Party | `/party/join` | Enter party code + character name & class |
 | Party View (Player) | `/party/[code]` | Character wallet, transfer, transaction history |
 | Party View (DM) | `/party/[code]/dm` | DM dashboard: all wallets, loot, god mode |
@@ -107,7 +109,7 @@ The application is **mobile-responsive** (players will use phones on the LAN).
 * **Components:** TailwindCSS + shadcn/ui, customized to fit the fantasy theme. Native CSS variables used for theme support.
 * **Responsiveness & Mobile-First:** Players will primarily use phones. Swipeable tabs, ≥44px touch targets. Includes native-feeling features like **Pull-to-Refresh**.
 * **Layout:** 4-tab party view: Party (members, settings) | Treasury (unified transfer card) | Splits (joint payments) | History. 
-  * **Bottom Bar:** Always-visible fixed bottom bar showing character's active coin balance (or DM Badge).
+  * **Bottom Bar:** Mobile-only fixed bottom bar showing character's active coin balance (or DM Badge).
   * **Interactive Coins:** Tapping coins auto-converts the display to that specific denomination on the fly.
   * **Animations:** Smooth number-counting component (`requestAnimationFrame`) for balance changes to highlight additions/deductions naturally.
   * **Empty States:** Themed inline SVGs (swords, chests, scrolls) for empty tabs to prevent blank-screen syndrome.

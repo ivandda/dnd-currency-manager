@@ -61,14 +61,33 @@ export default function AuthPage() {
     };
 
     return (
-        <div className="relative min-h-screen flex items-center justify-center p-4">
+        <div className="relative min-h-screen px-4 py-8 md:px-8">
             <div className="absolute top-4 right-4 animate-fade-in">
                 <ThemeToggle />
             </div>
 
-            <div className="w-full max-w-md animate-slide-up">
-                {/* Title */}
-                <div className="text-center mb-10 flex flex-col items-center">
+            <div className="mx-auto grid w-full max-w-6xl items-stretch gap-6 lg:grid-cols-[1.05fr_1fr]">
+                <section className="hidden lg:flex animate-slide-up rounded-2xl border border-border/40 bg-card/40 p-10 backdrop-blur-sm">
+                    <div className="flex h-full flex-col justify-between">
+                        <div>
+                            <div className="mb-5 text-dnd-red glow-red">
+                                <Swords className="h-16 w-16" strokeWidth={1.5} />
+                            </div>
+                            <h1 className="text-4xl font-bold leading-tight text-dnd-red glow-red tracking-wide">
+                                D&D Currency Manager
+                            </h1>
+                            <p className="mt-4 max-w-md text-base text-muted-foreground">
+                                Run a clean party economy in real time: track wallets, split costs, and keep every coin movement logged.
+                            </p>
+                        </div>
+                        <div className="rounded-xl border border-border/30 bg-background/50 p-4 text-sm text-muted-foreground">
+                            Share your party link, invite players on LAN, and keep everyone synced instantly.
+                        </div>
+                    </div>
+                </section>
+
+                <div className="w-full max-w-md lg:max-w-none lg:self-center lg:justify-self-end animate-slide-up">
+                <div className="text-center mb-10 flex flex-col items-center lg:hidden">
                     <div className="mb-4 text-dnd-red glow-red">
                         <Swords className="w-16 h-16" strokeWidth={1.5} />
                     </div>
@@ -193,6 +212,7 @@ export default function AuthPage() {
                         </Card>
                     </TabsContent>
                 </Tabs>
+                </div>
             </div>
         </div>
     );

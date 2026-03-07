@@ -8,3 +8,4 @@ from app.models.joint_payment import (  # noqa: F401
     JointPaymentStatus,
     PaymentParticipant,
 )
+from app.models.coin_preference import PartyCoinPreference  # noqa: F401

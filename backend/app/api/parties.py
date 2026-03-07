@@ -10,9 +10,12 @@ from app.core.database import get_session
 from app.core.dependencies import (
     get_current_user,
     get_party_by_code,
+    get_user_character_in_party,
     require_active_party,
     require_dm,
+    require_party_member_or_dm,
 )
+from app.core.coin_preferences import get_party_coin_config, upsert_party_coin_config
 from app.core.currency import cp_to_breakdown
 from app.core.events import event_manager
 from app.models.user import User
@@ -20,12 +23,15 @@ from app.models.party import Party
 from app.models.character import Character
 from app.schemas.party import (
     CharacterInParty,
+    CharacterSettingsResponse,
+    CharacterSettingsUpdate,
     KickRequest,
     PartyCreate,
     PartyDetailResponse,
     PartyJoin,
     PartyResponse,
     PartyUpdateCoins,
+    CoinSettingsResponse,
 )
 from app.schemas.auth import MessageResponse
 
@@ -46,25 +52,35 @@ def _generate_party_code(session: Session, length: int = 4) -> str:
     )
 
 
-def _build_character_response(char: Character, party: Party, session: Session) -> CharacterInParty:
+def _build_character_response(
+    char: Character,
+    party: Party,
+    session: Session,
+    coin_settings: CoinSettingsResponse,
+    viewer_user_id: int,
+    viewer_is_dm: bool,
+) -> CharacterInParty:
     """Build a CharacterInParty response with balance display and username."""
+    can_view_balance = viewer_is_dm or char.user_id == viewer_user_id or char.is_balance_public
     breakdown = cp_to_breakdown(
-        char.balance_cp,
-        use_platinum=party.use_platinum,
-        use_gold=party.use_gold,
-        use_electrum=party.use_electrum,
+        char.balance_cp if can_view_balance else 0,
+        use_platinum=coin_settings.use_platinum,
+        use_gold=coin_settings.use_gold,
+        use_electrum=coin_settings.use_electrum,
     )
     user = session.get(User, char.user_id)
     return CharacterInParty(
         id=char.id,
         name=char.name,
         character_class=char.character_class,
-        balance_cp=char.balance_cp,
+        balance_cp=char.balance_cp if can_view_balance else 0,
         balance_display=breakdown.to_display_dict(
-            use_platinum=party.use_platinum,
-            use_gold=party.use_gold,
-            use_electrum=party.use_electrum,
+            use_platinum=coin_settings.use_platinum,
+            use_gold=coin_settings.use_gold,
+            use_electrum=coin_settings.use_electrum,
         ),
+        balance_visible_to_viewer=can_view_balance,
+        is_balance_public=char.is_balance_public,
         is_active=char.is_active,
         user_id=char.user_id,
         username=user.username if user else "Unknown",
@@ -128,25 +144,17 @@ def list_my_parties(
 @router.get("/{code}", response_model=PartyDetailResponse)
 def get_party_detail(
     party: Party = Depends(get_party_by_code),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_party_member_or_dm),
     session: Session = Depends(get_session),
 ):
     """Get party details including characters. Requires membership."""
-    # Verify user is DM or has a character in the party
-    is_dm = party.dm_id == current_user.id
-    user_character = session.exec(
-        select(Character).where(
-            Character.user_id == current_user.id,
-            Character.party_id == party.id,
-            Character.is_active == True,  # noqa: E712
-        )
-    ).first()
-
-    if not is_dm and not user_character:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not a member of this party",
-        )
+    viewer_is_dm = party.dm_id == current_user.id
+    coin_config = get_party_coin_config(session, party, current_user.id)
+    my_coin_settings = CoinSettingsResponse(
+        use_gold=coin_config.use_gold,
+        use_electrum=coin_config.use_electrum,
+        use_platinum=coin_config.use_platinum,
+    )
 
     # Get all characters
     characters = session.exec(
@@ -165,8 +173,19 @@ def get_party_detail(
         use_gold=party.use_gold,
         use_electrum=party.use_electrum,
         use_platinum=party.use_platinum,
+        my_coin_settings=my_coin_settings,
         created_at=party.created_at,
-        characters=[_build_character_response(c, party, session) for c in characters],
+        characters=[
+            _build_character_response(
+                c,
+                party,
+                session,
+                my_coin_settings,
+                current_user.id,
+                viewer_is_dm,
+            )
+            for c in characters
+        ],
     )
 
 
@@ -210,7 +229,20 @@ async def join_party(
 
     await event_manager.broadcast(party.id, "party_update", {"party_id": party.id})
 
-    return _build_character_response(character, party, session)
+    coin_config = get_party_coin_config(session, party, current_user.id)
+    my_coin_settings = CoinSettingsResponse(
+        use_gold=coin_config.use_gold,
+        use_electrum=coin_config.use_electrum,
+        use_platinum=coin_config.use_platinum,
+    )
+    return _build_character_response(
+        character,
+        party,
+        session,
+        my_coin_settings,
+        current_user.id,
+        False,
+    )
 
 
 @router.post("/{code}/leave", response_model=MessageResponse)
@@ -291,25 +323,41 @@ async def archive_party(
     return party
 
 
-@router.patch("/{code}/coins", response_model=PartyResponse)
+@router.patch("/{code}/my-coins", response_model=CoinSettingsResponse)
 async def update_coin_config(
     body: PartyUpdateCoins,
     party: Party = Depends(require_active_party),
-    dm_user: User = Depends(require_dm),
+    current_user: User = Depends(require_party_member_or_dm),
     session: Session = Depends(get_session),
 ):
-    """DM updates which coins are enabled for the party."""
-    if body.use_gold is not None:
-        party.use_gold = body.use_gold
-    if body.use_electrum is not None:
-        party.use_electrum = body.use_electrum
-    if body.use_platinum is not None:
-        party.use_platinum = body.use_platinum
+    """Update the current user's coin settings for this party."""
+    updated = upsert_party_coin_config(
+        session=session,
+        party=party,
+        user_id=current_user.id,
+        use_gold=body.use_gold,
+        use_electrum=body.use_electrum,
+        use_platinum=body.use_platinum,
+    )
+    return CoinSettingsResponse(
+        use_gold=updated.use_gold,
+        use_electrum=updated.use_electrum,
+        use_platinum=updated.use_platinum,
+    )
 
-    session.add(party)
-    session.commit()
-    session.refresh(party)
 
-    await event_manager.broadcast(party.id, "party_update", {"party_id": party.id})
+@router.patch("/{code}/my-character-settings", response_model=CharacterSettingsResponse)
+async def update_my_character_settings(
+    body: CharacterSettingsUpdate,
+    party: Party = Depends(require_active_party),
+    character: Character = Depends(get_user_character_in_party),
+    session: Session = Depends(get_session),
+):
+    """Update current player's character settings for this party."""
+    if body.is_balance_public is not None:
+        character.is_balance_public = body.is_balance_public
+        session.add(character)
+        session.commit()
+        await event_manager.broadcast(party.id, "party_update", {"party_id": party.id})
 
-    return party
+    return CharacterSettingsResponse(is_balance_public=character.is_balance_public)

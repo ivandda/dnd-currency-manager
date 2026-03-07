@@ -18,7 +18,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { CoinDisplay } from "@/components/coin-display";
 import { CoinInput } from "@/components/coin-input";
 import { usePartySSE } from "@/hooks/use-party-sse";
@@ -62,16 +61,8 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     const [jointPayments, setJointPayments] = useState<JointPaymentResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<TabId>("party");
-
-    // Swipe support
-    const touchStartX = useRef(0);
-    const contentRef = useRef<HTMLDivElement>(null);
-
-    // Pull-to-refresh
-    const [pullDistance, setPullDistance] = useState(0);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const pullStartY = useRef(0);
-    const isPulling = useRef(false);
+    const swipeStartX = useRef<number | null>(null);
+    const swipeStartY = useRef<number | null>(null);
 
     const isDM = party?.dm_id === user?.id;
     const myCharacter = party?.characters.find(
@@ -79,9 +70,9 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     );
 
     const enabledCoins: CoinType[] = [
-        ...(party?.use_platinum ? ["pp" as CoinType] : []),
-        ...(party?.use_gold ? ["gp" as CoinType] : []),
-        ...(party?.use_electrum ? ["ep" as CoinType] : []),
+        ...((party?.my_coin_settings?.use_platinum ?? party?.use_platinum) ? ["pp" as CoinType] : []),
+        ...((party?.my_coin_settings?.use_gold ?? party?.use_gold) ? ["gp" as CoinType] : []),
+        ...((party?.my_coin_settings?.use_electrum ?? party?.use_electrum) ? ["ep" as CoinType] : []),
         "sp",
         "cp",
     ];
@@ -115,32 +106,33 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
 
     const pendingCount = jointPayments.filter((p) => p.status === "pending").length;
 
-    // --- PULL-TO-REFRESH ---
-    const onTouchStart = (e: React.TouchEvent) => {
-        if (contentRef.current?.scrollTop === 0) {
-            pullStartY.current = e.touches[0].pageY;
-            isPulling.current = true;
-        }
+    const handleSwipeStart = (e: React.TouchEvent) => {
+        if (width >= 768) return;
+        const touch = e.touches[0];
+        swipeStartX.current = touch.clientX;
+        swipeStartY.current = touch.clientY;
     };
-    const onTouchMove = (e: React.TouchEvent) => {
-        if (!isPulling.current) return;
-        const currentY = e.touches[0].pageY;
-        const diff = currentY - pullStartY.current;
-        if (diff > 0) {
-            setPullDistance(Math.min(diff * 0.4, 80));
+
+    const handleSwipeEnd = (e: React.TouchEvent) => {
+        if (width >= 768) return;
+        if (swipeStartX.current === null || swipeStartY.current === null) return;
+
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - swipeStartX.current;
+        const dy = touch.clientY - swipeStartY.current;
+        swipeStartX.current = null;
+        swipeStartY.current = null;
+
+        // Keep vertical scroll behavior intact.
+        if (Math.abs(dy) > 60) return;
+        if (Math.abs(dx) < 70) return;
+
+        const currentIndex = TABS.indexOf(activeTab);
+        if (dx < 0 && currentIndex < TABS.length - 1) {
+            setActiveTab(TABS[currentIndex + 1]);
+        } else if (dx > 0 && currentIndex > 0) {
+            setActiveTab(TABS[currentIndex - 1]);
         }
-    };
-    const onTouchEnd = () => {
-        if (pullDistance > 60) {
-            setIsRefreshing(true);
-            loadAll().finally(() => {
-                setIsRefreshing(false);
-                setPullDistance(0);
-            });
-        } else {
-            setPullDistance(0);
-        }
-        isPulling.current = false;
     };
 
     if (loading && !party) {
@@ -157,7 +149,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     if (!party) return <div>Party not found</div>;
 
     return (
-        <div className="h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden">
+        <div className="h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden overscroll-none">
             {/* Header */}
             <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm shrink-0 z-50 flex flex-col">
                 <div className="w-full px-6 md:px-10 lg:px-16 py-2.5 flex items-center justify-between gap-4">
@@ -170,14 +162,6 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                             <h1 className="text-base sm:text-lg font-bold text-dnd-red truncate glow-red-sm leading-tight">
                                 {party.name}
                             </h1>
-                            <div className="flex items-center gap-1.5 overflow-hidden">
-                                <span className="text-[10px] sm:text-xs font-mono text-muted-foreground tracking-widest uppercase opacity-70">
-                                    Code:
-                                </span>
-                                <span className="text-[10px] sm:text-xs font-mono font-bold text-primary tracking-wider truncate">
-                                    {partyCode}
-                                </span>
-                            </div>
                         </div>
                     </div>
 
@@ -187,25 +171,18 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                             className="p-2 rounded-full hover:bg-secondary/20 transition-colors"
                             aria-label="Toggle theme"
                         >
-                            {theme === "dark" ? <Sun className="w-4 h-4 text-gold" /> : <Moon className="w-4 h-4 text-blue-600" />}
+                            {theme === "dark" ? <Sun className="w-4 h-4 text-gold" /> : <Moon className="w-4 h-4 text-primary" />}
                         </button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2.5 sm:px-3 text-xs border-border/40 hover:bg-secondary/20 font-semibold shadow-sm"
-                            onClick={loadAll}
-                            disabled={isRefreshing}
-                        >
-                            {isRefreshing ? <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin mr-1.5" /> : null}
-                            <span className="hidden sm:inline">Refresh</span>
-                            <span className="sm:hidden">↻</span>
-                        </Button>
                     </div>
                 </div>
             </header>
 
             {/* Desktop / Mobile Dual Layout */}
-            <div className="flex-1 flex flex-col md:flex-row w-full overflow-hidden relative">
+            <div
+                className="flex-1 min-h-0 flex flex-col md:flex-row w-full overflow-hidden relative"
+                onTouchStart={handleSwipeStart}
+                onTouchEnd={handleSwipeEnd}
+            >
 
                 {/* --- MOBILE TAB BAR (Hidden on md+) --- */}
                 <div className="md:hidden border-b border-border/30 bg-card/30 shrink-0 z-30">
@@ -234,13 +211,14 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                 </div>
 
                 {/* --- LEFT SIDEBAR: PARTY INFO (Desktop persistent, Mobile activeTab only) --- */}
-                <aside className={`${activeTab === "party" ? "flex" : "hidden"} md:flex flex-col w-full md:w-80 lg:w-96 shrink-0 md:border-r border-border/30 bg-card/10 overflow-hidden relative`}>
-                    <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-4 md:py-6 pb-6 mt-1.5">
+                <aside className={`${activeTab === "party" ? "flex" : "hidden"} md:flex flex-col flex-1 min-h-0 w-full md:w-80 lg:w-96 md:flex-none md:shrink-0 md:border-r border-border/30 bg-card/10 overflow-hidden relative`}>
+                    <div className="flex-1 min-h-0 overflow-y-auto px-6 lg:px-8 py-4 md:py-6 pb-6 mt-1.5">
                         <PartyTab
                             party={party}
                             isDM={isDM}
                             myCharacter={myCharacter}
                             partyCode={partyCode}
+                            enabledCoins={enabledCoins}
                             onRefresh={loadAll}
                             onBack={onBack}
                         />
@@ -248,17 +226,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                 </aside>
 
                 {/* --- MAIN CONTENT AREA (Tabs for Desktop, Conditional for Mobile) --- */}
-                <main className={`flex-1 flex flex-col overflow-hidden bg-background ${activeTab === "party" ? "hidden md:flex" : "flex"}`}>
-                    {/* Pull-to-refresh indicator (mobile only) */}
-                    {pullDistance > 0 && (
-                        <div
-                            className="pull-indicator flex items-center justify-center text-muted-foreground text-xs bg-background/50 backdrop-blur-sm py-2 shrink-0 border-b border-border/20 z-40"
-                            style={{ height: pullDistance, opacity: Math.min(pullDistance / 50, 1) }}
-                        >
-                            {pullDistance > 50 ? "Release to refresh ↻" : "Pull to refresh ↓"}
-                        </div>
-                    )}
-
+                <main className={`flex-1 min-h-0 flex flex-col overflow-hidden bg-background ${activeTab === "party" ? "hidden md:flex" : "flex"}`}>
                     {/* Desktop Tab Bar (Excludes Party Tab) */}
                     <div className="hidden md:flex border-b border-border/30 bg-card/60 backdrop-blur-md shrink-0 z-30 justify-start">
                         <div className="w-full px-8 md:px-12 lg:px-16 flex">
@@ -293,7 +261,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                     </div>
 
                     {/* Scrollable Content Container */}
-                    <div className="flex-1 overflow-y-auto w-full relative">
+                    <div className="flex-1 min-h-0 overflow-y-auto w-full relative">
                         {/* Tab Content Wrapper */}
                         <div className="w-full px-8 md:px-12 lg:px-16 py-4 md:py-6 pb-6 animate-fade-in">
                             {(activeTab === "treasury" || (activeTab === "party" && width >= 768)) && (
@@ -326,7 +294,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
             </div>
 
             {/* Identity / Balance Footer */}
-            <footer className="bg-secondary/10 border-t border-border/20 shrink-0 z-50">
+            <footer className="md:hidden bg-secondary/10 border-t border-border/20 shrink-0 z-50">
                 <div className="w-full px-8 md:px-12 lg:px-16 py-3 flex items-center justify-between">
                     {myCharacter ? (
                         <>
@@ -381,7 +349,7 @@ function CopyBadge({ text }: { text: string }) {
             onClick={handleCopy}
             className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-mono bg-secondary/40 text-gold border border-border/30 hover:border-gold/30 transition-all font-semibold"
         >
-            {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+            {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
             {copied ? "Copied" : text}
         </button>
     );
@@ -430,10 +398,10 @@ function EmptyState({ icon, message }: { icon: "shield" | "scroll" | "handshake"
    ============================================ */
 
 function PartyTab({
-    party, isDM, myCharacter, partyCode, onRefresh, onBack,
+    party, isDM, myCharacter, partyCode, enabledCoins, onRefresh, onBack,
 }: {
     party: PartyDetail; isDM: boolean; myCharacter: CharacterInParty | undefined;
-    partyCode: string; onRefresh: () => void; onBack: () => void;
+    partyCode: string; enabledCoins: CoinType[]; onRefresh: () => void; onBack: () => void;
 }) {
     const activeCharacters = party.characters.filter(c => c.is_active);
 
@@ -447,34 +415,7 @@ function PartyTab({
     const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/?party=${partyCode}` : "";
 
     return (
-        <div className="space-y-3">
-            {/* Invite Instructions */}
-            <Card className="card-medieval bg-secondary/10 border-border/30 shadow-none">
-                <CardHeader className="p-2 pb-1 mt-1">
-                    <CardTitle className="text-sm flex items-center gap-1.5"><Castle className="w-4 h-4" /> Invite Players</CardTitle>
-                </CardHeader>
-                <CardContent className="p-2 pt-0 space-y-1.5">
-                    <p className="text-xs text-muted-foreground leading-tight px-1 mb-1">
-                        Share this code or link with your players so they can join.
-                    </p>
-                    <div className="flex items-center gap-2 bg-background/50 border border-border/40 rounded-md p-1 px-1.5">
-                        <code className="text-[10px] sm:text-xs font-mono font-bold text-primary flex-1 tracking-wider pl-1">{partyCode}</code>
-                        <CopyBadge text={partyCode} />
-                    </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full text-xs h-7 bg-background border-border border-dashed shadow-sm"
-                        onClick={async () => {
-                            try { await navigator.clipboard.writeText(joinUrl); toast.success("Link copied!"); }
-                            catch { toast.error("Failed to copy link"); }
-                        }}
-                    >
-                        <Copy className="w-3 h-3 mr-1.5 opacity-70" /> Copy Full Invite Link
-                    </Button>
-                </CardContent>
-            </Card>
-
+        <div className="space-y-4">
             <h3 className="text-lg font-bold text-dnd-red pt-1 flex items-center gap-2 px-1">
                 <Shield className="w-4 h-4" /> Party Members
             </h3>
@@ -483,8 +424,8 @@ function PartyTab({
                     <div
                         key={char.id}
                         className={`flex items-center justify-between py-2.5 px-3 rounded-lg border ${char.id === myCharacter?.id
-                            ? "bg-primary/10 border-primary/30 shadow-sm"
-                            : "bg-secondary/20 border-border/20"
+                            ? "bg-primary/15 border-primary/50 shadow-sm"
+                            : "bg-card/75 border-border/60"
                             }`}
                     >
                         <div className="min-w-0">
@@ -499,7 +440,20 @@ function PartyTab({
                             <p className="text-xs text-muted-foreground">{char.character_class}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                            <CoinDisplay coins={char.balance_display} size="sm" />
+                            {char.balance_visible_to_viewer ? (
+                                <CoinDisplay
+                                    coins={char.balance_display}
+                                    balanceCp={char.balance_cp}
+                                    enabledCoins={enabledCoins}
+                                    size="sm"
+                                    interactive
+                                    animated
+                                />
+                            ) : (
+                                <span className="rounded border border-border/40 bg-secondary/30 px-2 py-1 text-xs font-medium text-muted-foreground">
+                                    Hidden
+                                </span>
+                            )}
                             {isDM && char.id !== myCharacter?.id && (
                                 <button
                                     onClick={async () => {
@@ -523,10 +477,43 @@ function PartyTab({
                 )}
             </div>
 
-            {/* DM Settings */}
-            {isDM && (
-                <PartySettings partyCode={partyCode} party={party} onRefresh={onRefresh} onBack={onBack} />
-            )}
+            <Card className="card-medieval bg-secondary/10 border-border/30 shadow-none">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Castle className="w-4 h-4 text-primary" /> Invite Players
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground">
+                        Share this code or link so players can join this party.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2.5">
+                    <div className="flex items-center gap-2 rounded-md border border-border/50 bg-background/60 px-2 py-1.5">
+                        <code className="flex-1 truncate font-mono text-xs tracking-[0.18em] text-primary">{partyCode}</code>
+                        <CopyBadge text={partyCode} />
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-full border-dashed text-xs"
+                        onClick={async () => {
+                            try { await navigator.clipboard.writeText(joinUrl); toast.success("Link copied!"); }
+                            catch { toast.error("Failed to copy link"); }
+                        }}
+                    >
+                        <Copy className="mr-1.5 h-3.5 w-3.5 opacity-75" />
+                        Copy Full Invite Link
+                    </Button>
+                </CardContent>
+            </Card>
+
+            <PartySettings
+                partyCode={partyCode}
+                party={party}
+                isDM={isDM}
+                myCharacter={myCharacter}
+                onRefresh={onRefresh}
+                onBack={onBack}
+            />
         </div>
     );
 }
@@ -534,8 +521,6 @@ function PartyTab({
 /* ============================================
    TREASURY TAB — Unified Transfer Card
    ============================================ */
-
-type TransferTarget = "member" | "npc" | "self";
 
 function TreasuryTab({
     party, isDM, myCharacter, partyCode, enabledCoins, onRefresh,
@@ -549,7 +534,6 @@ function TreasuryTab({
             {myCharacter && (
                 <UnifiedTransferCard
                     partyCode={partyCode}
-                    myCharacter={myCharacter}
                     otherCharacters={party.characters.filter((c) => c.is_active && c.id !== myCharacter.id)}
                     enabledCoins={enabledCoins}
                     onDone={onRefresh}
@@ -570,9 +554,9 @@ function TreasuryTab({
 }
 
 function UnifiedTransferCard({
-    partyCode, myCharacter, otherCharacters, enabledCoins, onDone,
+    partyCode, otherCharacters, enabledCoins, onDone,
 }: {
-    partyCode: string; myCharacter: CharacterInParty;
+    partyCode: string;
     otherCharacters: CharacterInParty[]; enabledCoins: CoinType[]; onDone: () => void;
 }) {
     // "pay" covers sending to party member(s) and/or paying an NPC
@@ -703,8 +687,8 @@ function UnifiedTransferCard({
                                 ))}
                             </div>
                             { (selectedReceiverIds.length + (includeNpc ? 1 : 0)) > 1 && (
-                                <p className="text-[10px] text-amber-500 font-medium italic mt-1">
-                                    Total amount will be split as evenly as possible among all {selectedReceiverIds.length + (includeNpc ? 1 : 0)} recipients. Any leftover copper that cannot be split exactly will remain with you.
+                                <p className="text-[10px] text-warning font-medium italic mt-1">
+                                    Total amount will be split as evenly as possible among all {selectedReceiverIds.length + (includeNpc ? 1 : 0)} recipients. Any leftover copper that cannot be split exactly is assigned to a random recipient.
                                 </p>
                             ) }
                         </div>
@@ -929,6 +913,9 @@ function SplitsTab({
 
     return (
         <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+                Split shared costs across selected players. Everyone must approve before coins move.
+            </p>
             {/* Create button */}
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                 <DialogTrigger asChild>
@@ -977,7 +964,7 @@ function SplitsTab({
                                     {availableReceivers.map((c) => (
                                         <button key={c.id} type="button"
                                             onClick={() => setReceiverId(c.id)}
-                                            className={`px-3 py-2 rounded-md text-xs transition-all ${receiverId === c.id ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
+                                            className={`px-3 py-2 rounded-md text-xs transition-all ${receiverId === c.id ? "bg-success-soft text-success border border-success/40" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
                                             {c.name}
                                         </button>
                                     ))}
@@ -1027,7 +1014,7 @@ function SplitsTab({
                         {past.map((p) => (
                             <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-secondary/10 border border-border/10 opacity-60">
                                 <CoinDisplay coins={p.total_amount_display} size="sm" />
-                                <Badge variant="outline" className={`text-[10px] ${p.status === "approved" ? "text-emerald-600 dark:text-emerald-400 border-emerald-500/40" : p.status === "cancelled" ? "text-red-600 dark:text-red-400 border-red-500/40" : "text-muted-foreground"}`}>
+                                <Badge variant="outline" className={`text-[10px] ${p.status === "approved" ? "text-success border-success/40" : p.status === "cancelled" ? "text-danger border-danger/40" : "text-muted-foreground"}`}>
                                     {p.status}
                                 </Badge>
                             </div>
@@ -1055,18 +1042,18 @@ function SplitCard({
         (myCharacter && payment.creator_character_id === myCharacter.id);
 
     return (
-        <Card className={`card-medieval border-amber-500/20 ${!isParticipant && !isDM ? "opacity-50" : ""}`}>
-            <CardContent className="py-3 space-y-2">
+        <Card className={`card-medieval border-warning/25 ${!isParticipant && !isDM ? "opacity-50" : ""}`}>
+            <CardContent className="py-3 space-y-2.5">
                 <div className="flex items-start justify-between">
                     <div>
                         <CoinDisplay coins={payment.total_amount_display} size="sm" />
                         {payment.reason && <p className="text-xs text-muted-foreground italic mt-0.5">{payment.reason}</p>}
                         <p className="text-[10px] text-muted-foreground mt-0.5">by {payment.creator_name || "DM"}</p>
                         {payment.receiver_name && (
-                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">→ pays {payment.receiver_name}</p>
+                            <p className="text-[10px] text-success mt-0.5">→ pays {payment.receiver_name}</p>
                         )}
                     </div>
-                    <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px]">Pending</Badge>
+                    <Badge className="bg-warning-soft text-warning border-warning/30 text-[10px]">Pending</Badge>
                 </div>
 
                 {/* Non-participant notice */}
@@ -1074,20 +1061,32 @@ function SplitCard({
                     <p className="text-[10px] text-muted-foreground italic">You are not part of this split</p>
                 )}
 
-                <div className="space-y-1">
+                <div className="space-y-2">
                     {payment.participants.map((p) => (
-                        <div key={p.character_id} className="flex items-center justify-between text-xs">
-                            <span>{p.character_name}: <CoinDisplay coins={p.share_display} size="sm" /></span>
-                            <span className={p.has_accepted ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>{p.has_accepted ? "✓" : "…"}</span>
+                        <div key={p.character_id} className="rounded-md border border-border/30 bg-secondary/10 px-2.5 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0 flex items-center gap-2">
+                                    <span className="truncate text-xs font-medium">{p.character_name}</span>
+                                    <span
+                                        className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${p.has_accepted
+                                            ? "border-success/35 bg-success-soft text-success"
+                                            : "border-warning/35 bg-warning-soft text-warning"
+                                            }`}
+                                    >
+                                        {p.has_accepted ? "✓ Accepted" : "… Pending"}
+                                    </span>
+                                </div>
+                                <CoinDisplay coins={p.share_display} size="sm" />
+                            </div>
                         </div>
                     ))}
                 </div>
 
                 {needsMyAction && (
                     <div className="flex gap-2 mt-2">
-                        <Button size="sm" className="flex-1 h-9 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30 flex items-center gap-1.5"
+                        <Button size="sm" className="flex-1 h-9 bg-success-soft text-success hover:opacity-90 border border-success/35 flex items-center gap-1.5"
                             onClick={() => onAction(payment.id, "accept")}><Check className="w-3.5 h-3.5" /> Accept</Button>
-                        <Button size="sm" variant="outline" className="flex-1 h-9 text-red-600 dark:text-red-400 border-red-500/40 hover:bg-red-500/10 flex items-center gap-1.5"
+                        <Button size="sm" variant="outline" className="flex-1 h-9 text-danger border-danger/40 hover:bg-danger-soft flex items-center gap-1.5"
                             onClick={() => onAction(payment.id, "reject")}><X className="w-3.5 h-3.5" /> Reject</Button>
                     </div>
                 )}
@@ -1108,69 +1107,84 @@ function SplitCard({
 
 function HistoryTab({ transactions }: { transactions: TransactionResponse[] }) {
     const labels: Record<string, { icon: React.ElementType; label: string; color: string }> = {
-        transfer: { icon: ArrowUpRight, label: "Transfer", color: "text-blue-600 dark:text-blue-400" },
-        dm_grant: { icon: CircleDollarSign, label: "DM Loot", color: "text-emerald-600 dark:text-emerald-400" },
-        dm_deduct: { icon: Zap, label: "DM Deduct", color: "text-red-600 dark:text-red-400" },
-        joint_payment: { icon: Handshake, label: "Split", color: "text-amber-600 dark:text-amber-400" },
+        transfer: { icon: ArrowUpRight, label: "Transfer", color: "text-info" },
+        dm_grant: { icon: CircleDollarSign, label: "DM Loot", color: "text-success" },
+        dm_deduct: { icon: Zap, label: "DM Deduct", color: "text-danger" },
+        joint_payment: { icon: Handshake, label: "Split", color: "text-warning" },
         spend: { icon: Store, label: "NPC Purchase", color: "text-copper" },
-        self_add: { icon: Plus, label: "Self Add", color: "text-emerald-500 dark:text-emerald-300" },
+        self_add: { icon: Plus, label: "Self Add", color: "text-success" },
     };
 
+    if (transactions.length === 0) {
+        return <EmptyState icon="scroll" message="No tales to tell yet — make your first transaction!" />;
+    }
+
     return (
-        <ScrollArea className="h-[calc(100vh-200px)]">
-            {transactions.length === 0 ? (
-                <EmptyState icon="scroll" message="No tales to tell yet — make your first transaction!" />
-            ) : (
-                <div className="space-y-1">
-                    {transactions.map((txn) => {
-                        const info = labels[txn.transaction_type] || labels.transfer;
-                        return (
-                            <div key={txn.id} className="flex items-start justify-between py-2.5 px-3 rounded-lg hover:bg-secondary/10 transition-colors">
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-1.5">
-                                        <info.icon className={`w-3.5 h-3.5 ${info.color}`} />
-                                        <span className={`text-xs font-medium ${info.color}`}>{info.label}</span>
-                                    </div>
-                                    <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                                        {txn.sender_name && <span>{txn.sender_name}</span>}
-                                        {txn.sender_name && txn.receiver_name && " → "}
-                                        {txn.receiver_name && <span>{txn.receiver_name}</span>}
-                                    </p>
-                                    {txn.reason && <p className="text-[11px] text-muted-foreground italic truncate">{txn.reason}</p>}
-                                </div>
-                                <div className="text-right shrink-0 ml-3">
-                                    <CoinDisplay coins={txn.amount_display} size="sm" />
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                                        {new Date(txn.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                    </p>
-                                </div>
+        <div className="space-y-1">
+            {transactions.map((txn) => {
+                const info = labels[txn.transaction_type] || labels.transfer;
+                return (
+                    <div key={txn.id} className="flex items-start justify-between py-2.5 px-3 rounded-lg border border-border/50 bg-card/70 hover:bg-card transition-colors">
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                                <info.icon className={`w-3.5 h-3.5 ${info.color}`} />
+                                <span className={`text-xs font-medium ${info.color}`}>{info.label}</span>
                             </div>
-                        );
-                    })}
-                </div>
-            )}
-        </ScrollArea>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                                {txn.sender_name && <span>{txn.sender_name}</span>}
+                                {txn.sender_name && txn.receiver_name && " → "}
+                                {txn.receiver_name && <span>{txn.receiver_name}</span>}
+                            </p>
+                            {txn.reason && <p className="text-[11px] text-muted-foreground italic truncate">{txn.reason}</p>}
+                        </div>
+                        <div className="text-right shrink-0 ml-3">
+                            <CoinDisplay coins={txn.amount_display} size="sm" />
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {new Date(txn.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
     );
 }
 
 /* ============================================
-   PARTY SETTINGS (DM only)
+   PARTY SETTINGS
    ============================================ */
 
 function PartySettings({
-    partyCode, party, onRefresh, onBack,
+    partyCode, party, isDM, myCharacter, onRefresh, onBack,
 }: {
-    partyCode: string; party: PartyDetail; onRefresh: () => void; onBack: () => void;
+    partyCode: string; party: PartyDetail; isDM: boolean; myCharacter: CharacterInParty | undefined; onRefresh: () => void; onBack: () => void;
 }) {
     const [saving, setSaving] = useState(false);
+    const myCoinSettings = party.my_coin_settings ?? {
+        use_gold: party.use_gold,
+        use_electrum: party.use_electrum,
+        use_platinum: party.use_platinum,
+    };
 
     const toggleCoin = async (coin: "use_gold" | "use_electrum" | "use_platinum", val: boolean) => {
         setSaving(true);
         try {
-            await partyApi.updateCoins(partyCode, { [coin]: val });
+            await partyApi.updateMyCoins(partyCode, { [coin]: val });
             toast.success("Updated!"); onRefresh();
         } catch { toast.error("Failed"); }
         finally { setSaving(false); }
+    };
+
+    const toggleBalanceVisibility = async (val: boolean) => {
+        setSaving(true);
+        try {
+            await partyApi.updateMyCharacterSettings(partyCode, { is_balance_public: val });
+            toast.success("Updated!"); onRefresh();
+        } catch {
+            toast.error("Failed");
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -1180,11 +1194,11 @@ function PartySettings({
             </CardHeader>
             <CardContent className="space-y-3">
                 <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Coins</Label>
+                    <Label className="text-xs text-muted-foreground">My Coins</Label>
                     <div className="flex flex-wrap gap-1.5">
-                        {([["use_gold", party.use_gold, "Gold", "text-gold", CircleDollarSign] as const,
-                        ["use_electrum", party.use_electrum, "Electrum", "text-electrum", Zap] as const,
-                        ["use_platinum", party.use_platinum, "Platinum", "text-platinum", Gem] as const,
+                        {([["use_gold", myCoinSettings.use_gold, "Gold", "text-gold", CircleDollarSign] as const,
+                        ["use_electrum", myCoinSettings.use_electrum, "Electrum", "text-electrum", Zap] as const,
+                        ["use_platinum", myCoinSettings.use_platinum, "Platinum", "text-platinum", Gem] as const,
                         ]).map(([key, on, label, color, Icon]) => (
                             <button key={key} disabled={saving} onClick={() => toggleCoin(key, !on)}
                                 className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all border ${on ? `bg-primary/20 ${color} border-current/30` : "bg-secondary/30 text-muted-foreground border-transparent hover:border-border/50"}`}>
@@ -1195,8 +1209,45 @@ function PartySettings({
                     </div>
                     <p className="text-[10px] text-muted-foreground">Silver & Copper always on</p>
                 </div>
-                <Separator className="bg-border/20" />
-                {party.is_active && (
+                {myCharacter && (
+                    <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Wallet Visibility</Label>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={myCharacter.is_balance_public}
+                            disabled={saving}
+                            onClick={() => toggleBalanceVisibility(!myCharacter.is_balance_public)}
+                            className="w-full rounded-md border border-border/50 bg-secondary/20 px-3 py-2 transition-all hover:border-border/80"
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="text-left">
+                                    <p className="text-xs font-semibold text-foreground">
+                                        {myCharacter.is_balance_public ? "Public to party" : "Private to party"}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {myCharacter.is_balance_public
+                                            ? "Other players can see your funds"
+                                            : "Other players will see Hidden"}
+                                    </p>
+                                </div>
+                                <span
+                                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${myCharacter.is_balance_public ? "bg-success/70" : "bg-border"
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${myCharacter.is_balance_public ? "translate-x-4" : "translate-x-0.5"
+                                            }`}
+                                    />
+                                </span>
+                            </div>
+                        </button>
+                        <p className="text-[10px] text-muted-foreground">DM can always see all balances.</p>
+                    </div>
+                )}
+                {isDM && party.is_active && (
+                    <>
+                        <Separator className="bg-border/20" />
                     <Button variant="outline" size="sm"
                         className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 h-9 text-xs flex items-center justify-center gap-2"
                         onClick={async () => {
@@ -1206,6 +1257,7 @@ function PartySettings({
                         }}>
                         <Archive className="w-4 h-4" /> Archive Party
                     </Button>
+                    </>
                 )}
             </CardContent>
         </Card>

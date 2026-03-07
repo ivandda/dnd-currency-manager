@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { useTheme } from "@/lib/theme-context";
 import { partyApi, getApiBase } from "@/lib/api";
 import type { Party } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Swords, Castle, Zap, Gem, CircleDollarSign, Radio, Check } from "lucide-react";
+import { Swords, Castle, Radio, Check } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import PartyView from "./party-view";
 
@@ -26,9 +25,6 @@ export default function DashboardPage() {
     // Create party dialog
     const [createOpen, setCreateOpen] = useState(false);
     const [createName, setCreateName] = useState("");
-    const [useGold, setUseGold] = useState(true);
-    const [useElectrum, setUseElectrum] = useState(false);
-    const [usePlatinum, setUsePlatinum] = useState(false);
 
     // Join party dialog
     const [joinOpen, setJoinOpen] = useState(false);
@@ -75,7 +71,7 @@ export default function DashboardPage() {
     const handleCreateParty = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const party = await partyApi.create(createName, useGold, useElectrum, usePlatinum);
+            const party = await partyApi.create(createName);
             toast.success(`Party "${party.name}" created! Code: ${party.code}`);
             setCreateOpen(false);
             setCreateName("");
@@ -176,16 +172,9 @@ export default function DashboardPage() {
                                                     required
                                                 />
                                             </div>
-                                            <Separator className="bg-border/30" />
-                                            <div className="space-y-2">
-                                                <Label className="text-sm text-muted-foreground">Enabled Coins</Label>
-                                                <div className="flex flex-wrap gap-2">
-                                                    <CoinToggle label="Gold" icon={<CircleDollarSign className="w-4 h-4 text-gold" />} checked={useGold} onChange={setUseGold} />
-                                                    <CoinToggle label="Electrum" icon={<Zap className="w-4 h-4 text-electrum" />} checked={useElectrum} onChange={setUseElectrum} />
-                                                    <CoinToggle label="Platinum" icon={<Gem className="w-4 h-4 text-platinum" />} checked={usePlatinum} onChange={setUsePlatinum} />
-                                                </div>
-                                                <p className="text-xs text-muted-foreground mt-1">Silver & Copper are always enabled</p>
-                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Players and DM can configure their own coin visibility from inside each party.
+                                            </p>
                                             <Button type="submit" className="w-full bg-primary text-primary-foreground font-bold h-12">
                                                 Create Party
                                             </Button>
@@ -321,32 +310,6 @@ export default function DashboardPage() {
                 </div>
             </main>
         </div>
-    );
-}
-
-function CoinToggle({
-    label,
-    icon,
-    checked,
-    onChange,
-}: {
-    label: string;
-    icon: React.ReactNode;
-    checked: boolean;
-    onChange: (v: boolean) => void;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={() => onChange(!checked)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${checked
-                ? "bg-primary/20 text-gold border border-gold/30"
-                : "bg-secondary/30 text-muted-foreground border border-transparent hover:border-border/50"
-                }`}
-        >
-            {icon}
-            {label}
-        </button>
     );
 }
 
