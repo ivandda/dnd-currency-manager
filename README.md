@@ -29,8 +29,8 @@ Real-time currency management for Dungeons & Dragons parties, designed to run on
 ### 1. Clone & configure
 
 ```bash
-git clone https://github.com/ivandda/dnd-currency-manager-lan
-cd dnd-currency-manager-lan
+git clone https://github.com/ivandda/dnd-currency-manager.git
+cd dnd-currency-manager
 cp .env.example .env
 ```
 
