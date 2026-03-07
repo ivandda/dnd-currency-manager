@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { partyApi, transferApi, transactionApi, jointPaymentApi } from "@/lib/api";
@@ -61,6 +61,8 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     const [jointPayments, setJointPayments] = useState<JointPaymentResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<TabId>("party");
+    const swipeStartX = useRef<number | null>(null);
+    const swipeStartY = useRef<number | null>(null);
 
     const isDM = party?.dm_id === user?.id;
     const myCharacter = party?.characters.find(
@@ -103,6 +105,35 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     });
 
     const pendingCount = jointPayments.filter((p) => p.status === "pending").length;
+
+    const handleSwipeStart = (e: React.TouchEvent) => {
+        if (width >= 768) return;
+        const touch = e.touches[0];
+        swipeStartX.current = touch.clientX;
+        swipeStartY.current = touch.clientY;
+    };
+
+    const handleSwipeEnd = (e: React.TouchEvent) => {
+        if (width >= 768) return;
+        if (swipeStartX.current === null || swipeStartY.current === null) return;
+
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - swipeStartX.current;
+        const dy = touch.clientY - swipeStartY.current;
+        swipeStartX.current = null;
+        swipeStartY.current = null;
+
+        // Keep vertical scroll behavior intact.
+        if (Math.abs(dy) > 60) return;
+        if (Math.abs(dx) < 70) return;
+
+        const currentIndex = TABS.indexOf(activeTab);
+        if (dx < 0 && currentIndex < TABS.length - 1) {
+            setActiveTab(TABS[currentIndex + 1]);
+        } else if (dx > 0 && currentIndex > 0) {
+            setActiveTab(TABS[currentIndex - 1]);
+        }
+    };
 
     if (loading && !party) {
         return (
@@ -147,7 +178,11 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
             </header>
 
             {/* Desktop / Mobile Dual Layout */}
-            <div className="flex-1 min-h-0 flex flex-col md:flex-row w-full overflow-hidden relative">
+            <div
+                className="flex-1 min-h-0 flex flex-col md:flex-row w-full overflow-hidden relative"
+                onTouchStart={handleSwipeStart}
+                onTouchEnd={handleSwipeEnd}
+            >
 
                 {/* --- MOBILE TAB BAR (Hidden on md+) --- */}
                 <div className="md:hidden border-b border-border/30 bg-card/30 shrink-0 z-30">
