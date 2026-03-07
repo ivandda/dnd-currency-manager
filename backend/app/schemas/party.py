@@ -52,6 +52,8 @@ class CharacterInParty(BaseModel):
     character_class: str
     balance_cp: int
     balance_display: dict[str, int] = {}
+    balance_visible_to_viewer: bool = True
+    is_balance_public: bool = True
     is_active: bool
     user_id: int
     username: str
@@ -79,3 +81,15 @@ class CoinSettingsResponse(BaseModel):
     use_gold: bool
     use_electrum: bool
     use_platinum: bool
+
+
+class CharacterSettingsUpdate(BaseModel):
+    """Request body for updating current character settings in a party."""
+
+    is_balance_public: Optional[bool] = None
+
+
+class CharacterSettingsResponse(BaseModel):
+    """Current character settings for this party."""
+
+    is_balance_public: bool

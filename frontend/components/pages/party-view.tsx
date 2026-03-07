@@ -424,8 +424,8 @@ function PartyTab({
                     <div
                         key={char.id}
                         className={`flex items-center justify-between py-2.5 px-3 rounded-lg border ${char.id === myCharacter?.id
-                            ? "bg-primary/10 border-primary/30 shadow-sm"
-                            : "bg-secondary/20 border-border/20"
+                            ? "bg-primary/15 border-primary/50 shadow-sm"
+                            : "bg-card/75 border-border/60"
                             }`}
                     >
                         <div className="min-w-0">
@@ -440,13 +440,20 @@ function PartyTab({
                             <p className="text-xs text-muted-foreground">{char.character_class}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                            <CoinDisplay
-                                coins={char.balance_display}
-                                balanceCp={char.balance_cp}
-                                enabledCoins={enabledCoins}
-                                size="sm"
-                                interactive
-                            />
+                            {char.balance_visible_to_viewer ? (
+                                <CoinDisplay
+                                    coins={char.balance_display}
+                                    balanceCp={char.balance_cp}
+                                    enabledCoins={enabledCoins}
+                                    size="sm"
+                                    interactive
+                                    animated
+                                />
+                            ) : (
+                                <span className="rounded border border-border/40 bg-secondary/30 px-2 py-1 text-xs font-medium text-muted-foreground">
+                                    Hidden
+                                </span>
+                            )}
                             {isDM && char.id !== myCharacter?.id && (
                                 <button
                                     onClick={async () => {
@@ -503,6 +510,7 @@ function PartyTab({
                 partyCode={partyCode}
                 party={party}
                 isDM={isDM}
+                myCharacter={myCharacter}
                 onRefresh={onRefresh}
                 onBack={onBack}
             />
@@ -905,6 +913,9 @@ function SplitsTab({
 
     return (
         <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+                Split shared costs across selected players. Everyone must approve before coins move.
+            </p>
             {/* Create button */}
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                 <DialogTrigger asChild>
@@ -1113,7 +1124,7 @@ function HistoryTab({ transactions }: { transactions: TransactionResponse[] }) {
             {transactions.map((txn) => {
                 const info = labels[txn.transaction_type] || labels.transfer;
                 return (
-                    <div key={txn.id} className="flex items-start justify-between py-2.5 px-3 rounded-lg hover:bg-secondary/10 transition-colors">
+                    <div key={txn.id} className="flex items-start justify-between py-2.5 px-3 rounded-lg border border-border/50 bg-card/70 hover:bg-card transition-colors">
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
                                 <info.icon className={`w-3.5 h-3.5 ${info.color}`} />
@@ -1144,9 +1155,9 @@ function HistoryTab({ transactions }: { transactions: TransactionResponse[] }) {
    ============================================ */
 
 function PartySettings({
-    partyCode, party, isDM, onRefresh, onBack,
+    partyCode, party, isDM, myCharacter, onRefresh, onBack,
 }: {
-    partyCode: string; party: PartyDetail; isDM: boolean; onRefresh: () => void; onBack: () => void;
+    partyCode: string; party: PartyDetail; isDM: boolean; myCharacter: CharacterInParty | undefined; onRefresh: () => void; onBack: () => void;
 }) {
     const [saving, setSaving] = useState(false);
     const myCoinSettings = party.my_coin_settings ?? {
@@ -1162,6 +1173,18 @@ function PartySettings({
             toast.success("Updated!"); onRefresh();
         } catch { toast.error("Failed"); }
         finally { setSaving(false); }
+    };
+
+    const toggleBalanceVisibility = async (val: boolean) => {
+        setSaving(true);
+        try {
+            await partyApi.updateMyCharacterSettings(partyCode, { is_balance_public: val });
+            toast.success("Updated!"); onRefresh();
+        } catch {
+            toast.error("Failed");
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -1186,6 +1209,42 @@ function PartySettings({
                     </div>
                     <p className="text-[10px] text-muted-foreground">Silver & Copper always on</p>
                 </div>
+                {myCharacter && (
+                    <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Wallet Visibility</Label>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={myCharacter.is_balance_public}
+                            disabled={saving}
+                            onClick={() => toggleBalanceVisibility(!myCharacter.is_balance_public)}
+                            className="w-full rounded-md border border-border/50 bg-secondary/20 px-3 py-2 transition-all hover:border-border/80"
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="text-left">
+                                    <p className="text-xs font-semibold text-foreground">
+                                        {myCharacter.is_balance_public ? "Public to party" : "Private to party"}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {myCharacter.is_balance_public
+                                            ? "Other players can see your funds"
+                                            : "Other players will see Hidden"}
+                                    </p>
+                                </div>
+                                <span
+                                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${myCharacter.is_balance_public ? "bg-success/70" : "bg-border"
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${myCharacter.is_balance_public ? "translate-x-4" : "translate-x-0.5"
+                                            }`}
+                                    />
+                                </span>
+                            </div>
+                        </button>
+                        <p className="text-[10px] text-muted-foreground">DM can always see all balances.</p>
+                    </div>
+                )}
                 {isDM && party.is_active && (
                     <>
                         <Separator className="bg-border/20" />

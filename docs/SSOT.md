@@ -61,6 +61,7 @@ A Full-Stack web application designed to run on a Local Area Network (LAN) that 
 * **DM Dashboard:** The DM has a real-time overview of every character's wallet and balance in the Party.
 * **Per-User Coin Preferences:** Coin visibility (gold/electrum/platinum) is configured per user per party, not globally by DM.
 * **P2P Transfers:** Characters can send money to each other.
+* **Balance Privacy:** Each player can choose whether their wallet balance is visible to other players in that party. DM always sees all balances.
 * **NPC Spend:** Characters can spend money on NPC purchases (shops, tolls, etc.). Money leaves the economy.
 * **Self-Add Funds:** Players can add money to their own wallet (found loot, sold items) without DM approval. All self-adds are recorded in the immutable transaction history.
 * **Looting (DM to Players):** The DM can transfer funds to one or multiple players simultaneously. These funds are generated infinitely (they are not deducted from a DM wallet).

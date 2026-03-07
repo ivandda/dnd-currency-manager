@@ -179,6 +179,12 @@ export const partyApi = {
             method: "PATCH",
             body: JSON.stringify(config),
         }),
+
+    updateMyCharacterSettings: (code: string, settings: { is_balance_public?: boolean }) =>
+        request<{ is_balance_public: boolean }>(`/api/parties/${code}/my-character-settings`, {
+            method: "PATCH",
+            body: JSON.stringify(settings),
+        }),
 };
 
 // --- Transfer API ---

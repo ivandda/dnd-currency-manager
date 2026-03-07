@@ -356,6 +356,102 @@ class TestMyCoinSettings:
             "use_platinum": False,
         }
 
+
+class TestBalanceVisibility:
+    """Test per-character balance visibility in party detail."""
+
+    def test_default_balance_is_public(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+    ):
+        response = client.get(f"/api/parties/{test_party.code}", headers=auth_headers)
+        assert response.status_code == 200
+        me = next(c for c in response.json()["characters"] if c["id"] == test_character.id)
+        assert me["is_balance_public"] is True
+        assert me["balance_visible_to_viewer"] is True
+
+    def test_player_can_toggle_own_balance_visibility(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+    ):
+        response = client.patch(
+            f"/api/parties/{test_party.code}/my-character-settings",
+            json={"is_balance_public": False},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["is_balance_public"] is False
+
+    def test_other_players_cannot_see_hidden_balance(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        second_auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+        second_character: Character,
+    ):
+        hide = client.patch(
+            f"/api/parties/{test_party.code}/my-character-settings",
+            json={"is_balance_public": False},
+            headers=auth_headers,
+        )
+        assert hide.status_code == 200
+
+        response = client.get(f"/api/parties/{test_party.code}", headers=second_auth_headers)
+        assert response.status_code == 200
+        hidden_char = next(c for c in response.json()["characters"] if c["id"] == test_character.id)
+        assert hidden_char["balance_visible_to_viewer"] is False
+        assert hidden_char["balance_cp"] == 0
+        assert hidden_char["balance_display"] == {"cp": 0}
+
+    def test_owner_still_sees_own_hidden_balance(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+    ):
+        hide = client.patch(
+            f"/api/parties/{test_party.code}/my-character-settings",
+            json={"is_balance_public": False},
+            headers=auth_headers,
+        )
+        assert hide.status_code == 200
+
+        response = client.get(f"/api/parties/{test_party.code}", headers=auth_headers)
+        assert response.status_code == 200
+        me = next(c for c in response.json()["characters"] if c["id"] == test_character.id)
+        assert me["balance_visible_to_viewer"] is True
+        assert me["balance_cp"] == 10000
+
+    def test_dm_always_sees_hidden_balances(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        dm_headers: dict,
+        test_party: Party,
+        test_character: Character,
+    ):
+        hide = client.patch(
+            f"/api/parties/{test_party.code}/my-character-settings",
+            json={"is_balance_public": False},
+            headers=auth_headers,
+        )
+        assert hide.status_code == 200
+
+        response = client.get(f"/api/parties/{test_party.code}", headers=dm_headers)
+        assert response.status_code == 200
+        char_data = next(c for c in response.json()["characters"] if c["id"] == test_character.id)
+        assert char_data["balance_visible_to_viewer"] is True
+        assert char_data["balance_cp"] == 10000
+
     def test_list_as_player(
         self,
         client: TestClient,

@@ -31,6 +31,8 @@ export interface CharacterInParty {
     character_class: string;
     balance_cp: number;
     balance_display: Record<string, number>;
+    balance_visible_to_viewer: boolean;
+    is_balance_public: boolean;
     is_active: boolean;
     user_id: number;
     username: string;
