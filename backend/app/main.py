@@ -1,4 +1,8 @@
 from contextlib import asynccontextmanager
+import ipaddress
+import os
+import socket
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -63,6 +67,28 @@ def health_check():
     return {"status": "ok", "app": "D&D Currency Manager"}
 
 
+def _is_valid_share_ip(value: str) -> bool:
+    """Return True when value is a non-loopback IPv4 address."""
+    try:
+        ip = ipaddress.ip_address(value)
+    except ValueError:
+        return False
+
+    return (
+        ip.version == 4
+        and not ip.is_loopback
+        and not ip.is_unspecified
+        and not ip.is_link_local
+    )
+
+
+def _ip_from_host_header(host_header: str) -> str | None:
+    host = host_header.split(":")[0].strip("[]")
+    if _is_valid_share_ip(host):
+        return host
+    return None
+
+
 @app.get("/api/network/lan-url")
 def get_lan_url(request: Request):
     """Return the shareable LAN URL for other players to connect.
@@ -72,29 +98,34 @@ def get_lan_url(request: Request):
     2. Request Host header (works when accessed via LAN IP already)
     3. UDP socket outbound IP (works outside Docker)
     """
-    import os
-    import socket
-
     lan_ip: str | None = None
+    source = "none"
+    warnings: list[str] = []
+    frontend_url = urlparse(settings.FRONTEND_URL)
+    frontend_scheme = frontend_url.scheme or "http"
+    frontend_port = frontend_url.port or (443 if frontend_scheme == "https" else 3000)
+    in_docker = os.path.exists("/.dockerenv")
 
     # 1. User-configured env var — most reliable since Docker can't
     #    see the host's real network interfaces
     env_ip = os.environ.get("LAN_IP", "").strip()
-    if env_ip and env_ip not in ("localhost", "127.0.0.1"):
+    if _is_valid_share_ip(env_ip):
         lan_ip = env_ip
+        source = "env"
 
     # 2. Use the Host header from the incoming request
-    #    (works when someone already accesses via LAN IP)
+    #    (works when someone already accesses via LAN IP).
+    #    Only trust raw IP hosts; skip domains/localhost values.
     if not lan_ip:
-        host_header = request.headers.get("host", "")
-        host_part = host_header.split(":")[0]
-        if host_part and host_part not in ("localhost", "127.0.0.1"):
-            lan_ip = host_part
+        host_ip = _ip_from_host_header(request.headers.get("host", ""))
+        if host_ip:
+            lan_ip = host_ip
+            source = "host_header"
 
     # 3. UDP socket trick — find the outbound network interface IP.
     #    Inside Docker this gives the container IP, but outside Docker
     #    it gives the real LAN IP.
-    if not lan_ip:
+    if not lan_ip and not in_docker:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 # Use a short timeout so this doesn't block the request
@@ -102,15 +133,28 @@ def get_lan_url(request: Request):
                 s.settimeout(0.5)
                 s.connect(("8.8.8.8", 80))
                 candidate = s.getsockname()[0]
-                # Skip Docker-internal IPs (172.x.x.x are often Docker networks)
-                if not candidate.startswith("127."):
+                if _is_valid_share_ip(candidate):
                     lan_ip = candidate
+                    source = "udp_socket"
         except Exception:
             pass
 
+    if in_docker and not os.environ.get("LAN_IP", "").strip():
+        warnings.append(
+            "Running in Docker without LAN_IP set can prevent accurate host LAN detection."
+        )
+    if not lan_ip:
+        warnings.append(
+            "If players are on guest/public Wi-Fi, client isolation may block direct LAN access."
+        )
+
     if lan_ip:
-        return {"lan_url": f"http://{lan_ip}:3000", "ip": lan_ip}
+        return {
+            "lan_url": f"{frontend_scheme}://{lan_ip}:{frontend_port}",
+            "ip": lan_ip,
+            "source": source,
+            "warnings": warnings,
+        }
 
-    return {"lan_url": None, "ip": None}
-
+    return {"lan_url": None, "ip": None, "source": source, "warnings": warnings}
 

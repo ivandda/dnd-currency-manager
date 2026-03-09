@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { getAccessToken } from "@/lib/api";
+import { getAccessToken, getApiBase } from "@/lib/api";
 
 type SSEHandler = (event: string, data: unknown) => void;
 
@@ -31,8 +31,7 @@ export function usePartySSE(partyCode: string | null, onEvent: SSEHandler) {
             esRef.current = null;
         }
 
-        // Auto-detect backend URL from browser hostname (LAN support)
-        const apiBase = `http://${window.location.hostname}:8000`;
+        const apiBase = getApiBase();
         const url = `${apiBase}/api/sse/${partyCode}?token=${encodeURIComponent(token)}`;
 
         console.log("[SSE] Connecting to", url);

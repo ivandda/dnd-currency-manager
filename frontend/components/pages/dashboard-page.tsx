@@ -316,6 +316,7 @@ export default function DashboardPage() {
 function ShareUrlBanner() {
     const [copied, setCopied] = useState(false);
     const [lanUrl, setLanUrl] = useState("");
+    const [shareWarning, setShareWarning] = useState<string | null>(null);
 
     useEffect(() => {
         // Fetch the actual LAN URL from the backend
@@ -325,10 +326,19 @@ function ShareUrlBanner() {
                     credentials: "include",
                 });
                 if (res.ok) {
-                    const data = await res.json();
+                    const data = await res.json() as {
+                        lan_url?: string | null;
+                        warnings?: string[];
+                    };
                     if (data.lan_url) {
                         setLanUrl(data.lan_url);
+                        if (data.warnings?.length) {
+                            setShareWarning(data.warnings[0]);
+                        }
                         return;
+                    }
+                    if (data.warnings?.length) {
+                        setShareWarning(data.warnings[0]);
                     }
                 }
             } catch {
@@ -336,6 +346,9 @@ function ShareUrlBanner() {
             }
             // Fallback: use current origin (better than nothing)
             setLanUrl(window.location.origin);
+            if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+                setShareWarning("This link is local-only. Players need your LAN IP or a tunnel URL.");
+            }
         };
         fetchLanUrl();
     }, []);
@@ -360,19 +373,27 @@ function ShareUrlBanner() {
     const isLocalhost = lanUrl.includes("localhost") || lanUrl.includes("127.0.0.1");
 
     return (
-        <div className="mb-6 flex items-center gap-3 rounded-lg bg-secondary/20 border border-border/30 px-4 py-3 shadow-sm">
-            <Radio className="w-4 h-4 text-muted-foreground shrink-0" />
-            <span className="text-sm font-semibold text-muted-foreground shrink-0 hidden sm:inline">Share URL:</span>
-            <code className={`text-sm font-mono truncate flex-1 ${isLocalhost ? "text-muted-foreground" : "text-gold glow-gold"}`}>
-                {lanUrl}
-            </code>
-            <button
-                onClick={handleCopy}
-                className="cursor-pointer shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-primary/20 text-gold border border-gold/30 hover:bg-primary/30 transition-all uppercase tracking-wide"
-            >
-                {copied ? <Check className="w-3 h-3" /> : null}
-                {copied ? "Copied" : "Copy"}
-            </button>
+        <div className="mb-6 rounded-lg bg-secondary/20 border border-border/30 px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3">
+                <Radio className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-sm font-semibold text-muted-foreground shrink-0 hidden sm:inline">Share URL:</span>
+                <code className={`text-sm font-mono truncate flex-1 ${isLocalhost ? "text-muted-foreground" : "text-gold glow-gold"}`}>
+                    {lanUrl}
+                </code>
+                <button
+                    onClick={handleCopy}
+                    className="cursor-pointer shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-primary/20 text-gold border border-gold/30 hover:bg-primary/30 transition-all uppercase tracking-wide"
+                >
+                    {copied ? <Check className="w-3 h-3" /> : null}
+                    {copied ? "Copied" : "Copy"}
+                </button>
+            </div>
+
+            {(shareWarning || isLocalhost) && (
+                <p className="mt-2 text-xs text-amber-300">
+                    {shareWarning || "Players cannot use localhost from other devices."} If this Wi-Fi blocks device-to-device traffic, use a tunnel like ngrok.
+                </p>
+            )}
         </div>
     );
 }
