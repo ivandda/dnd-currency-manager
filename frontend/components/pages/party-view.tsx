@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { CoinDisplay } from "@/components/coin-display";
 import { CoinInput } from "@/components/coin-input";
@@ -423,6 +423,8 @@ function PartyTab({
     party: PartyDetail; isDM: boolean; myCharacter: CharacterInParty | undefined;
     partyCode: string; enabledCoins: CoinType[]; onRefresh: () => void; onBack: () => void;
 }) {
+    const [kickTarget, setKickTarget] = useState<CharacterInParty | null>(null);
+    const [kicking, setKicking] = useState(false);
     const activeCharacters = party.characters.filter(c => c.is_active);
 
     // Sort so myCharacter is first
@@ -433,6 +435,22 @@ function PartyTab({
     });
 
     const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/?party=${partyCode}` : "";
+
+    const confirmKick = async () => {
+        if (!kickTarget) return;
+        const target = kickTarget;
+        setKicking(true);
+        try {
+            await partyApi.kick(partyCode, target.id);
+            toast.success(`${target.name} kicked`);
+            setKickTarget(null);
+            onRefresh();
+        } catch {
+            toast.error("Failed");
+        } finally {
+            setKicking(false);
+        }
+    };
 
     return (
         <div className="space-y-4">
@@ -476,14 +494,7 @@ function PartyTab({
                             )}
                             {isDM && char.id !== myCharacter?.id && (
                                 <button
-                                    onClick={async () => {
-                                        if (!confirm(`Kick ${char.name}?`)) return;
-                                        try {
-                                            await partyApi.kick(partyCode, char.id);
-                                            toast.success(`${char.name} kicked`);
-                                            onRefresh();
-                                        } catch { toast.error("Failed"); }
-                                    }}
+                                    onClick={() => setKickTarget(char)}
                                     className="text-[10px] text-destructive hover:underline ml-1"
                                 >
                                     Kick
@@ -534,6 +545,35 @@ function PartyTab({
                 onRefresh={onRefresh}
                 onBack={onBack}
             />
+
+            <Dialog
+                open={Boolean(kickTarget)}
+                onOpenChange={(open) => {
+                    if (!open && !kicking) setKickTarget(null);
+                }}
+            >
+                <DialogContent className="card-medieval border-destructive/30 sm:max-w-md" showCloseButton={!kicking}>
+                    <DialogHeader>
+                        <DialogTitle className="text-destructive">Kick Party Member</DialogTitle>
+                        <DialogDescription>
+                            Remove {kickTarget?.name ?? "this character"} from the party?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setKickTarget(null)} disabled={kicking}>
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={confirmKick}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            disabled={kicking}
+                        >
+                            {kicking ? "Kicking..." : "Kick"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
@@ -1179,6 +1219,8 @@ function InventoryTab({
     const [transferItem, setTransferItem] = useState<InventoryItemResponse | null>(null);
     const [transferOwner, setTransferOwner] = useState("unassigned");
     const [transferring, setTransferring] = useState(false);
+    const [archiveItem, setArchiveItem] = useState<InventoryItemResponse | null>(null);
+    const [archiving, setArchiving] = useState(false);
     const [activeSection, setActiveSection] = useState<"all" | "stash" | "mine" | "public" | "archived">(
         isDM ? "all" : "mine"
     );
@@ -1346,13 +1388,22 @@ function InventoryTab({
     };
 
     const handleArchive = async (item: InventoryItemResponse) => {
-        if (!confirm(`Archive ${item.name}?`)) return;
+        setArchiveItem(item);
+    };
+
+    const confirmArchive = async () => {
+        if (!archiveItem) return;
+        const item = archiveItem;
+        setArchiving(true);
         try {
             await inventoryApi.archive(partyCode, item.id);
             toast.success("Item archived");
+            setArchiveItem(null);
             onRefresh();
         } catch (err: unknown) {
             toast.error(err instanceof Error ? err.message : "Failed");
+        } finally {
+            setArchiving(false);
         }
     };
 
@@ -1585,6 +1636,35 @@ function InventoryTab({
                             {transferring ? "Transferring..." : "Transfer"}
                         </Button>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={Boolean(archiveItem)}
+                onOpenChange={(open) => {
+                    if (!open && !archiving) setArchiveItem(null);
+                }}
+            >
+                <DialogContent className="card-medieval border-destructive/30 sm:max-w-md" showCloseButton={!archiving}>
+                    <DialogHeader>
+                        <DialogTitle className="text-destructive">Archive Item</DialogTitle>
+                        <DialogDescription>
+                            Archive {archiveItem?.name ?? "this item"}? You can restore it later from Archived.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setArchiveItem(null)} disabled={archiving}>
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={confirmArchive}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            disabled={archiving}
+                        >
+                            {archiving ? "Archiving..." : "Archive"}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
@@ -1838,6 +1918,8 @@ function PartySettings({
     partyCode: string; party: PartyDetail; isDM: boolean; myCharacter: CharacterInParty | undefined; onRefresh: () => void; onBack: () => void;
 }) {
     const [saving, setSaving] = useState(false);
+    const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+    const [archivingParty, setArchivingParty] = useState(false);
     const myCoinSettings = party.my_coin_settings ?? {
         use_gold: party.use_gold,
         use_electrum: party.use_electrum,
@@ -1862,6 +1944,20 @@ function PartySettings({
             toast.error("Failed");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const confirmArchiveParty = async () => {
+        setArchivingParty(true);
+        try {
+            await partyApi.archive(partyCode);
+            toast.success("Archived");
+            setArchiveDialogOpen(false);
+            onBack();
+        } catch {
+            toast.error("Failed");
+        } finally {
+            setArchivingParty(false);
         }
     };
 
@@ -1928,16 +2024,41 @@ function PartySettings({
                         <Separator className="bg-border/20" />
                     <Button variant="outline" size="sm"
                         className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 h-9 text-xs flex items-center justify-center gap-2"
-                        onClick={async () => {
-                            if (!confirm("Archive this party?")) return;
-                            try { await partyApi.archive(partyCode); toast.success("Archived"); onBack(); }
-                            catch { toast.error("Failed"); }
-                        }}>
+                        onClick={() => setArchiveDialogOpen(true)}>
                         <Archive className="w-4 h-4" /> Archive Party
                     </Button>
                     </>
                 )}
             </CardContent>
+
+            <Dialog
+                open={archiveDialogOpen}
+                onOpenChange={(open) => {
+                    if (!archivingParty) setArchiveDialogOpen(open);
+                }}
+            >
+                <DialogContent className="card-medieval border-destructive/30 sm:max-w-md" showCloseButton={!archivingParty}>
+                    <DialogHeader>
+                        <DialogTitle className="text-destructive">Archive Party</DialogTitle>
+                        <DialogDescription>
+                            Archive this party and hide it from active play?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setArchiveDialogOpen(false)} disabled={archivingParty}>
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={confirmArchiveParty}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            disabled={archivingParty}
+                        >
+                            {archivingParty ? "Archiving..." : "Archive Party"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }
