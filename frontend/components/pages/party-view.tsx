@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { CoinDisplay } from "@/components/coin-display";
 import { CoinInput } from "@/components/coin-input";
@@ -889,7 +889,8 @@ function SplitsTab({
     characters: CharacterInParty[]; enabledCoins: CoinType[];
     jointPayments: JointPaymentResponse[]; onRefresh: () => void;
 }) {
-    const [createOpen, setCreateOpen] = useState(false);
+    const [showCreateForm, setShowCreateForm] = useState(false);
+    const [creating, setCreating] = useState(false);
     const [selectedChars, setSelectedChars] = useState<number[]>([]);
     const [amount, setAmount] = useState<Record<string, number>>({});
     const [reason, setReason] = useState("");
@@ -904,6 +905,7 @@ function SplitsTab({
         if (selectedChars.length === 0) return toast.error("Select participants");
         if (Object.keys(amount).length === 0) return toast.error("Enter an amount");
         if (payTarget === "member" && !receiverId) return toast.error("Select who receives the money");
+        setCreating(true);
         try {
             const rcvId = payTarget === "member" ? receiverId ?? undefined : undefined;
             if (isDM) {
@@ -912,9 +914,15 @@ function SplitsTab({
                 await jointPaymentApi.create(partyCode, selectedChars, amount, reason || undefined, rcvId);
             }
             toast.success("Split created!");
-            setCreateOpen(false); setSelectedChars([]); setAmount({}); setReason(""); setReceiverId(null);
+            setShowCreateForm(false);
+            setSelectedChars([]);
+            setAmount({});
+            setReason("");
+            setReceiverId(null);
+            setPayTarget("npc");
             onRefresh();
         } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Failed"); }
+        finally { setCreating(false); }
     };
 
     const handleAction = async (id: number, action: "accept" | "reject" | "cancel") => {
@@ -936,81 +944,91 @@ function SplitsTab({
             <p className="text-xs text-muted-foreground">
                 Split shared costs across selected players. Everyone must approve before coins move.
             </p>
-            {/* Create button */}
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                <DialogTrigger asChild>
-                    <Button className="w-full h-11 bg-primary text-primary-foreground font-medium flex items-center justify-center gap-2">
-                        <Handshake className="w-4 h-4" /> Create New Split
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="card-medieval border-border/40 sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="text-dnd-red">Create Split Payment</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleCreate} className="space-y-4">
-                        <div className="flex gap-1.5">
-                            <button type="button" onClick={() => { setPayTarget("npc"); setReceiverId(null); }}
-                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-all border ${payTarget === "npc" ? "bg-primary/20 text-dnd-red border-dnd-red/30" : "bg-secondary/30 text-muted-foreground border-transparent"}`}>
-                                <Store className="w-3.5 h-3.5" /> Pay NPC
-                            </button>
-                            <button type="button" onClick={() => setPayTarget("member")}
-                                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-all border ${payTarget === "member" ? "bg-primary/20 text-dnd-red border-dnd-red/30" : "bg-secondary/30 text-muted-foreground border-transparent"}`}>
-                                <ArrowUpRight className="w-3.5 h-3.5" /> Pay Member
-                            </button>
-                        </div>
 
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Participants (who pays)</Label>
-                            <div className="flex flex-wrap gap-1.5">
-                                {characters.map((c) => (
-                                    <button key={c.id} type="button"
-                                        onClick={() => {
-                                            setSelectedChars((p) => p.includes(c.id) ? p.filter((x) => x !== c.id) : [...p, c.id]);
-                                            // If this character was the receiver, clear them
-                                            if (receiverId === c.id) setReceiverId(null);
-                                        }}
-                                        className={`px-3 py-2 rounded-md text-xs transition-all ${selectedChars.includes(c.id) ? "bg-primary/20 text-dnd-red border border-dnd-red/30" : "bg-secondary/30 text-muted-foreground"}`}>
-                                        {c.name}
-                                    </button>
-                                ))}
+            <Button
+                type="button"
+                className="h-10 w-full sm:w-auto bg-destructive text-white hover:bg-destructive/90 border border-destructive/40"
+                onClick={() => setShowCreateForm((prev) => !prev)}
+            >
+                <Handshake className="w-4 h-4 mr-1.5" />
+                Create New Split
+                {showCreateForm ? <ChevronUp className="w-4 h-4 ml-2" /> : <ChevronDown className="w-4 h-4 ml-2" />}
+            </Button>
+
+            {showCreateForm && (
+                <Card className="card-medieval border-border/30">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <Handshake className="w-4 h-4 text-primary" /> Create Split Payment
+                        </CardTitle>
+                        <CardDescription className="text-xs text-muted-foreground">
+                            Build a split request and choose who pays and who receives.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleCreate} className="space-y-4">
+                            <div className="flex gap-1.5">
+                                <button type="button" onClick={() => { setPayTarget("npc"); setReceiverId(null); }}
+                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-all border ${payTarget === "npc" ? "bg-primary/20 text-dnd-red border-dnd-red/30" : "bg-secondary/30 text-muted-foreground border-transparent"}`}>
+                                    <Store className="w-3.5 h-3.5" /> Pay NPC
+                                </button>
+                                <button type="button" onClick={() => setPayTarget("member")}
+                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-all border ${payTarget === "member" ? "bg-primary/20 text-dnd-red border-dnd-red/30" : "bg-secondary/30 text-muted-foreground border-transparent"}`}>
+                                    <ArrowUpRight className="w-3.5 h-3.5" /> Pay Member
+                                </button>
                             </div>
-                        </div>
 
-                        {/* Receiver selector (pay member only) */}
-                        {payTarget === "member" && (
                             <div className="space-y-1.5">
-                                <Label className="text-xs">Recipient (who receives)</Label>
+                                <Label className="text-xs">Participants (who pays)</Label>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {availableReceivers.map((c) => (
+                                    {characters.map((c) => (
                                         <button key={c.id} type="button"
-                                            onClick={() => setReceiverId(c.id)}
-                                            className={`px-3 py-2 rounded-md text-xs transition-all ${receiverId === c.id ? "bg-success-soft text-success border border-success/40" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
+                                            onClick={() => {
+                                                setSelectedChars((p) => p.includes(c.id) ? p.filter((x) => x !== c.id) : [...p, c.id]);
+                                                if (receiverId === c.id) setReceiverId(null);
+                                            }}
+                                            className={`px-3 py-2 rounded-md text-xs transition-all ${selectedChars.includes(c.id) ? "bg-primary/20 text-dnd-red border border-dnd-red/30" : "bg-secondary/30 text-muted-foreground"}`}>
                                             {c.name}
                                         </button>
                                     ))}
-                                    {availableReceivers.length === 0 && (
-                                        <p className="text-xs text-muted-foreground py-1">Select participants first</p>
-                                    )}
                                 </div>
                             </div>
-                        )}
 
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Total (split equally)</Label>
-                            <CoinInput enabledCoins={enabledCoins} value={amount} onChange={setAmount} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Reason</Label>
-                            <Input placeholder={payTarget === "member" ? "Pooling money for..." : "Tavern bill..."} value={reason}
-                                onChange={(e) => setReason(e.target.value)}
-                                className="bg-secondary/20 border-border/30 h-10 text-sm" />
-                        </div>
-                        <Button type="submit" className="w-full h-11 bg-primary text-primary-foreground">
-                            Create Split
-                        </Button>
-                    </form>
-                </DialogContent>
-            </Dialog>
+                            {payTarget === "member" && (
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs">Recipient (who receives)</Label>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {availableReceivers.map((c) => (
+                                            <button key={c.id} type="button"
+                                                onClick={() => setReceiverId(c.id)}
+                                                className={`px-3 py-2 rounded-md text-xs transition-all ${receiverId === c.id ? "bg-success-soft text-success border border-success/40" : "bg-secondary/30 text-muted-foreground border border-transparent"}`}>
+                                                {c.name}
+                                            </button>
+                                        ))}
+                                        {availableReceivers.length === 0 && (
+                                            <p className="text-xs text-muted-foreground py-1">Select participants first</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Total (split equally)</Label>
+                                <CoinInput enabledCoins={enabledCoins} value={amount} onChange={setAmount} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Reason</Label>
+                                <Input placeholder={payTarget === "member" ? "Pooling money for..." : "Tavern bill..."} value={reason}
+                                    onChange={(e) => setReason(e.target.value)}
+                                    className="bg-secondary/20 border-border/30 h-10 text-sm" />
+                            </div>
+                            <Button type="submit" className="w-full h-11 bg-primary text-primary-foreground" disabled={creating}>
+                                {creating ? "Creating..." : "Create Split"}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Pending */}
             {pending.length > 0 ? (
@@ -1350,11 +1368,13 @@ function InventoryTab({
 
     return (
         <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+                Track party items with owner, amount, visibility, and archive state so everyone sees what matters.
+            </p>
             <div className="flex flex-col sm:flex-row gap-2">
                 <Button
                     type="button"
-                    variant="outline"
-                    className="h-10 sm:w-auto border-dashed"
+                    className="h-10 sm:w-auto bg-destructive text-white hover:bg-destructive/90 border border-destructive/40"
                     onClick={() => setShowCreateForm((prev) => !prev)}
                 >
                     <Package className="w-4 h-4 mr-1.5" />
