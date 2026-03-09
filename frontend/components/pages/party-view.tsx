@@ -3,13 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
-import { partyApi, transferApi, transactionApi, jointPaymentApi } from "@/lib/api";
+import { partyApi, transferApi, transactionApi, jointPaymentApi, inventoryApi } from "@/lib/api";
 import type {
     PartyDetail,
     CharacterInParty,
     TransactionResponse,
     JointPaymentResponse,
     CoinType,
+    InventoryItemResponse,
+    InventoryHistoryEntryResponse,
 } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,11 +22,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Separator } from "@/components/ui/separator";
 import { CoinDisplay } from "@/components/coin-display";
 import { CoinInput } from "@/components/coin-input";
+import { SimpleMarkdown } from "@/components/simple-markdown";
 import { usePartySSE } from "@/hooks/use-party-sse";
 import { toast } from "sonner";
 import {
     Castle, CircleDollarSign, Handshake, Scroll, Shield, Check, Crown, ArrowLeft,
-    Zap, Gem, ArrowUpRight, Store, PlusCircle, Copy, Archive, Settings, Plus, Minus, X, Sun, Moon
+    Zap, Gem, ArrowUpRight, Store, PlusCircle, Copy, Archive, Settings, Plus, Minus, X, Sun, Moon, Package
 } from "lucide-react";
 
 interface PartyViewProps {
@@ -43,11 +46,12 @@ function useWindowWidth() {
     return width;
 }
 
-const TABS = ["party", "treasury", "splits", "history"] as const;
+const TABS = ["party", "treasury", "inventory", "splits", "history"] as const;
 type TabId = (typeof TABS)[number];
 const TAB_LABELS: Record<TabId, { text: string; icon: React.ElementType }> = {
     party: { text: "Party", icon: Castle },
     treasury: { text: "Treasury", icon: CircleDollarSign },
+    inventory: { text: "Inventory", icon: Package },
     splits: { text: "Splits", icon: Handshake },
     history: { text: "History", icon: Scroll },
 };
@@ -58,6 +62,8 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     const width = useWindowWidth();
     const [party, setParty] = useState<PartyDetail | null>(null);
     const [transactions, setTransactions] = useState<TransactionResponse[]>([]);
+    const [inventoryItems, setInventoryItems] = useState<InventoryItemResponse[]>([]);
+    const [inventoryHistory, setInventoryHistory] = useState<InventoryHistoryEntryResponse[]>([]);
     const [jointPayments, setJointPayments] = useState<JointPaymentResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<TabId>("party");
@@ -79,14 +85,18 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
 
     const loadAll = useCallback(async () => {
         try {
-            const [partyData, txData, jpData] = await Promise.all([
+            const [partyData, txData, jpData, itemData, itemHistoryData] = await Promise.all([
                 partyApi.getDetail(partyCode),
                 transactionApi.getHistory(partyCode, 1, 50),
                 jointPaymentApi.list(partyCode),
+                inventoryApi.list(partyCode, true),
+                inventoryApi.getHistory(partyCode, 300),
             ]);
             setParty(partyData);
             setTransactions(txData.transactions);
             setJointPayments(jpData);
+            setInventoryItems(itemData);
+            setInventoryHistory(itemHistoryData.events);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "Failed to load party";
             toast.error(message);
@@ -99,7 +109,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
 
     // SSE real-time updates
     usePartySSE(partyCode, (event) => {
-        if (["balance_update", "transaction_new", "joint_payment_update", "party_update"].includes(event)) {
+        if (["balance_update", "transaction_new", "joint_payment_update", "party_update", "inventory_update"].includes(event)) {
             loadAll();
         }
     });
@@ -285,8 +295,18 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                                     onRefresh={loadAll}
                                 />
                             )}
+                            {activeTab === "inventory" && (
+                                <InventoryTab
+                                    partyCode={partyCode}
+                                    isDM={isDM}
+                                    myCharacter={myCharacter}
+                                    characters={party.characters.filter((c) => c.is_active)}
+                                    items={inventoryItems}
+                                    onRefresh={loadAll}
+                                />
+                            )}
                             {activeTab === "history" && (
-                                <HistoryTab transactions={transactions} />
+                                <HistoryTab transactions={transactions} inventoryEvents={inventoryHistory} />
                             )}
                         </div>
                     </div>
@@ -1102,11 +1122,517 @@ function SplitCard({
 }
 
 /* ============================================
+   INVENTORY TAB
+   ============================================ */
+
+function InventoryTab({
+    partyCode,
+    isDM,
+    myCharacter,
+    characters,
+    items,
+    onRefresh,
+}: {
+    partyCode: string;
+    isDM: boolean;
+    myCharacter: CharacterInParty | undefined;
+    characters: CharacterInParty[];
+    items: InventoryItemResponse[];
+    onRefresh: () => void;
+}) {
+    const [search, setSearch] = useState("");
+    const [creating, setCreating] = useState(false);
+    const [newName, setNewName] = useState("");
+    const [newDescription, setNewDescription] = useState("");
+    const [newAmount, setNewAmount] = useState("1");
+    const [newIsPublic, setNewIsPublic] = useState(true);
+    const [newOwner, setNewOwner] = useState<string>(myCharacter ? String(myCharacter.id) : "unassigned");
+
+    const [editingItem, setEditingItem] = useState<InventoryItemResponse | null>(null);
+    const [editName, setEditName] = useState("");
+    const [editDescription, setEditDescription] = useState("");
+    const [editAmount, setEditAmount] = useState("1");
+    const [editIsPublic, setEditIsPublic] = useState(true);
+    const [savingEdit, setSavingEdit] = useState(false);
+
+    const [transferItem, setTransferItem] = useState<InventoryItemResponse | null>(null);
+    const [transferOwner, setTransferOwner] = useState("unassigned");
+    const [transferring, setTransferring] = useState(false);
+
+    const myCharId = myCharacter?.id ?? null;
+    const query = search.trim().toLowerCase();
+    const match = (item: InventoryItemResponse) => {
+        if (!query) return true;
+        return item.name.toLowerCase().includes(query) || item.description_md.toLowerCase().includes(query);
+    };
+
+    const activeItems = items
+        .filter((item) => item.is_active && match(item))
+        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    const editableArchivedItems = items
+        .filter((item) => !item.is_active && item.can_edit && match(item))
+        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+    const myItems = activeItems.filter((item) => item.owner_character_id === myCharId);
+    const publicPartyItems = activeItems.filter((item) => item.owner_character_id !== myCharId && item.is_public);
+    const unassignedItems = activeItems.filter((item) => item.owner_character_id === null);
+
+    const submitCreate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const amount = Number(newAmount);
+        if (!newName.trim()) return toast.error("Item name is required");
+        if (!Number.isInteger(amount) || amount < 0) return toast.error("Amount must be a non-negative integer");
+
+        setCreating(true);
+        try {
+            const ownerCharacterId = isDM
+                ? (newOwner === "unassigned" ? null : Number(newOwner))
+                : (myCharId ?? null);
+            await inventoryApi.create(partyCode, {
+                name: newName.trim(),
+                description_md: newDescription,
+                amount,
+                owner_character_id: ownerCharacterId,
+                is_public: newIsPublic,
+            });
+            toast.success("Item created");
+            setNewName("");
+            setNewDescription("");
+            setNewAmount("1");
+            setNewIsPublic(true);
+            setNewOwner(myCharId ? String(myCharId) : "unassigned");
+            onRefresh();
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Failed");
+        } finally {
+            setCreating(false);
+        }
+    };
+
+    const openEdit = (item: InventoryItemResponse) => {
+        setEditingItem(item);
+        setEditName(item.name);
+        setEditDescription(item.description_md);
+        setEditAmount(String(item.amount));
+        setEditIsPublic(item.is_public);
+    };
+
+    const submitEdit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingItem) return;
+        const amount = Number(editAmount);
+        if (!editName.trim()) return toast.error("Item name is required");
+        if (!Number.isInteger(amount) || amount < 0) return toast.error("Amount must be a non-negative integer");
+
+        setSavingEdit(true);
+        try {
+            await inventoryApi.update(partyCode, editingItem.id, {
+                name: editName.trim(),
+                description_md: editDescription,
+                amount,
+                is_public: editIsPublic,
+            });
+            toast.success("Item updated");
+            setEditingItem(null);
+            onRefresh();
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Failed");
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
+    const openTransfer = (item: InventoryItemResponse) => {
+        setTransferItem(item);
+        setTransferOwner(item.owner_character_id === null ? "unassigned" : String(item.owner_character_id));
+    };
+
+    const submitTransfer = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!transferItem) return;
+
+        const targetOwner = transferOwner === "unassigned" ? null : Number(transferOwner);
+        if (!isDM && targetOwner === null) {
+            return toast.error("Players must transfer to an active player");
+        }
+
+        setTransferring(true);
+        try {
+            await inventoryApi.transfer(partyCode, transferItem.id, targetOwner);
+            toast.success("Ownership transferred");
+            setTransferItem(null);
+            onRefresh();
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Failed");
+        } finally {
+            setTransferring(false);
+        }
+    };
+
+    const handleArchive = async (item: InventoryItemResponse) => {
+        if (!confirm(`Archive ${item.name}?`)) return;
+        try {
+            await inventoryApi.archive(partyCode, item.id);
+            toast.success("Item archived");
+            onRefresh();
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Failed");
+        }
+    };
+
+    const handleRestore = async (item: InventoryItemResponse) => {
+        try {
+            await inventoryApi.restore(partyCode, item.id);
+            toast.success("Item restored");
+            onRefresh();
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Failed");
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <Card className="card-medieval border-border/30">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Package className="w-4 h-4 text-primary" /> Add Item
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground">
+                        Keep party inventory synchronized in real-time.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={submitCreate} className="space-y-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Name</Label>
+                            <Input value={newName} onChange={(e) => setNewName(e.target.value)} maxLength={120} placeholder="Health Potion" />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Amount</Label>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    step={1}
+                                    value={newAmount}
+                                    onChange={(e) => setNewAmount(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Visibility</Label>
+                                <button
+                                    type="button"
+                                    onClick={() => setNewIsPublic(!newIsPublic)}
+                                    className="h-10 w-full rounded-md border border-border/50 bg-secondary/20 px-3 text-xs text-left"
+                                >
+                                    {newIsPublic ? "Public to party" : "Private (DM + owner only)"}
+                                </button>
+                            </div>
+                        </div>
+
+                        {isDM && (
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Owner</Label>
+                                <select
+                                    value={newOwner}
+                                    onChange={(e) => setNewOwner(e.target.value)}
+                                    className="h-10 w-full rounded-md border border-border/50 bg-secondary/20 px-3 text-sm"
+                                >
+                                    <option value="unassigned">Unassigned stash</option>
+                                    {characters.map((char) => (
+                                        <option key={char.id} value={String(char.id)}>
+                                            {char.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Description (Markdown)</Label>
+                            <textarea
+                                value={newDescription}
+                                onChange={(e) => setNewDescription(e.target.value)}
+                                maxLength={10000}
+                                rows={4}
+                                className="w-full rounded-md border border-border/50 bg-secondary/20 px-3 py-2 text-sm"
+                                placeholder="Use **bold**, *italics*, lists, and links."
+                            />
+                        </div>
+
+                        <Button type="submit" className="w-full h-10" disabled={creating}>
+                            {creating ? "Creating..." : "Create Item"}
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
+
+            <Card className="card-medieval border-border/30">
+                <CardContent className="pt-4">
+                    <Input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search items by name or description..."
+                    />
+                </CardContent>
+            </Card>
+
+            {isDM ? (
+                <>
+                    <InventorySection
+                        title="All Items"
+                        emptyMessage="No active items yet."
+                        items={activeItems}
+                        showOwner
+                        onEdit={openEdit}
+                        onTransfer={openTransfer}
+                        onArchive={handleArchive}
+                        onRestore={handleRestore}
+                    />
+                    <InventorySection
+                        title="Unassigned Stash"
+                        emptyMessage="Unassigned stash is empty."
+                        items={unassignedItems}
+                        showOwner={false}
+                        onEdit={openEdit}
+                        onTransfer={openTransfer}
+                        onArchive={handleArchive}
+                        onRestore={handleRestore}
+                    />
+                </>
+            ) : (
+                <>
+                    <InventorySection
+                        title="My Items"
+                        emptyMessage="You do not own any active items."
+                        items={myItems}
+                        showOwner={false}
+                        onEdit={openEdit}
+                        onTransfer={openTransfer}
+                        onArchive={handleArchive}
+                        onRestore={handleRestore}
+                    />
+                    <InventorySection
+                        title="Public Party Items"
+                        emptyMessage="No public party items available."
+                        items={publicPartyItems}
+                        showOwner
+                        onEdit={openEdit}
+                        onTransfer={openTransfer}
+                        onArchive={handleArchive}
+                        onRestore={handleRestore}
+                    />
+                </>
+            )}
+
+            {editableArchivedItems.length > 0 && (
+                <details className="text-sm">
+                    <summary className="text-muted-foreground cursor-pointer hover:text-foreground text-xs">
+                        Archived items ({editableArchivedItems.length})
+                    </summary>
+                    <div className="mt-2">
+                        <InventorySection
+                            title=""
+                            emptyMessage=""
+                            items={editableArchivedItems}
+                            showOwner
+                            onEdit={openEdit}
+                            onTransfer={openTransfer}
+                            onArchive={handleArchive}
+                            onRestore={handleRestore}
+                        />
+                    </div>
+                </details>
+            )}
+
+            <Dialog open={Boolean(editingItem)} onOpenChange={(open) => { if (!open) setEditingItem(null); }}>
+                <DialogContent className="card-medieval border-border/40 sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-dnd-red">Edit Item</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={submitEdit} className="space-y-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Name</Label>
+                            <Input value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={120} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Amount</Label>
+                            <Input type="number" min={0} step={1} value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Visibility</Label>
+                            <button
+                                type="button"
+                                onClick={() => setEditIsPublic(!editIsPublic)}
+                                className="h-10 w-full rounded-md border border-border/50 bg-secondary/20 px-3 text-xs text-left"
+                            >
+                                {editIsPublic ? "Public to party" : "Private (DM + owner only)"}
+                            </button>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Description (Markdown)</Label>
+                            <textarea
+                                value={editDescription}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                maxLength={10000}
+                                rows={5}
+                                className="w-full rounded-md border border-border/50 bg-secondary/20 px-3 py-2 text-sm"
+                            />
+                        </div>
+                        <Button type="submit" className="w-full h-10" disabled={savingEdit}>
+                            {savingEdit ? "Saving..." : "Save Changes"}
+                        </Button>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={Boolean(transferItem)} onOpenChange={(open) => { if (!open) setTransferItem(null); }}>
+                <DialogContent className="card-medieval border-border/40 sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-dnd-red">Transfer Ownership</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={submitTransfer} className="space-y-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">New owner</Label>
+                            <select
+                                value={transferOwner}
+                                onChange={(e) => setTransferOwner(e.target.value)}
+                                className="h-10 w-full rounded-md border border-border/50 bg-secondary/20 px-3 text-sm"
+                            >
+                                {isDM && <option value="unassigned">Unassigned stash</option>}
+                                {characters.map((char) => (
+                                    <option key={char.id} value={String(char.id)}>
+                                        {char.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <Button type="submit" className="w-full h-10" disabled={transferring}>
+                            {transferring ? "Transferring..." : "Transfer"}
+                        </Button>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function InventorySection({
+    title,
+    items,
+    emptyMessage,
+    showOwner,
+    onEdit,
+    onTransfer,
+    onArchive,
+    onRestore,
+}: {
+    title: string;
+    items: InventoryItemResponse[];
+    emptyMessage: string;
+    showOwner: boolean;
+    onEdit: (item: InventoryItemResponse) => void;
+    onTransfer: (item: InventoryItemResponse) => void;
+    onArchive: (item: InventoryItemResponse) => void;
+    onRestore: (item: InventoryItemResponse) => void;
+}) {
+    return (
+        <div className="space-y-2">
+            {title && <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</h4>}
+            {items.length === 0 ? (
+                emptyMessage ? <EmptyState icon="chest" message={emptyMessage} /> : null
+            ) : (
+                <div className="space-y-2">
+                    {items.map((item) => (
+                        <Card key={item.id} className="card-medieval border-border/30">
+                            <CardContent className="py-3 space-y-2">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
+                                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                            <Badge variant="outline" className="text-[10px] border-border/40">
+                                                Qty: {item.amount}
+                                            </Badge>
+                                            <Badge
+                                                variant="outline"
+                                                className={`text-[10px] ${item.is_public ? "text-success border-success/35" : "text-warning border-warning/35"}`}
+                                            >
+                                                {item.is_public ? "Public" : "Private"}
+                                            </Badge>
+                                            {showOwner && (
+                                                <Badge variant="outline" className="text-[10px] border-border/40">
+                                                    {item.owner_name ?? "Unassigned"}
+                                                </Badge>
+                                            )}
+                                            {!item.is_active && (
+                                                <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/40">
+                                                    Archived
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground shrink-0">
+                                        {new Date(item.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                    </p>
+                                </div>
+
+                                {item.description_md.trim() && (
+                                    <div className="rounded-md border border-border/30 bg-secondary/15 px-2.5 py-2">
+                                        <SimpleMarkdown markdown={item.description_md} />
+                                    </div>
+                                )}
+
+                                {item.can_edit && (
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {item.is_active && (
+                                            <>
+                                                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => onEdit(item)}>
+                                                    Edit
+                                                </Button>
+                                                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => onTransfer(item)}>
+                                                    Transfer
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8 text-xs text-destructive border-destructive/35 hover:bg-destructive/10"
+                                                    onClick={() => onArchive(item)}
+                                                >
+                                                    Archive
+                                                </Button>
+                                            </>
+                                        )}
+                                        {!item.is_active && (
+                                            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => onRestore(item)}>
+                                                Restore
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+/* ============================================
    HISTORY TAB
    ============================================ */
 
-function HistoryTab({ transactions }: { transactions: TransactionResponse[] }) {
-    const labels: Record<string, { icon: React.ElementType; label: string; color: string }> = {
+function HistoryTab({
+    transactions,
+    inventoryEvents,
+}: {
+    transactions: TransactionResponse[];
+    inventoryEvents: InventoryHistoryEntryResponse[];
+}) {
+    const [filter, setFilter] = useState<"all" | "currency" | "inventory">("all");
+
+    const currencyLabels: Record<string, { icon: React.ElementType; label: string; color: string }> = {
         transfer: { icon: ArrowUpRight, label: "Transfer", color: "text-info" },
         dm_grant: { icon: CircleDollarSign, label: "DM Loot", color: "text-success" },
         dm_deduct: { icon: Zap, label: "DM Deduct", color: "text-danger" },
@@ -1115,37 +1641,116 @@ function HistoryTab({ transactions }: { transactions: TransactionResponse[] }) {
         self_add: { icon: Plus, label: "Self Add", color: "text-success" },
     };
 
-    if (transactions.length === 0) {
+    const inventoryLabels: Record<string, { icon: React.ElementType; label: string; color: string }> = {
+        item_created: { icon: PlusCircle, label: "Item Created", color: "text-success" },
+        item_updated: { icon: Scroll, label: "Item Updated", color: "text-info" },
+        item_amount_changed: { icon: Package, label: "Amount Changed", color: "text-warning" },
+        item_visibility_changed: { icon: Shield, label: "Visibility Changed", color: "text-warning" },
+        item_transferred: { icon: ArrowUpRight, label: "Ownership Transfer", color: "text-info" },
+        item_deleted: { icon: Archive, label: "Item Archived", color: "text-danger" },
+        item_restored: { icon: Plus, label: "Item Restored", color: "text-success" },
+    };
+
+    const entries = [
+        ...transactions.map((txn) => ({
+            id: `txn-${txn.id}`,
+            kind: "currency" as const,
+            timestamp: txn.timestamp,
+            transaction: txn,
+        })),
+        ...inventoryEvents.map((evt) => ({
+            id: `inv-${evt.id}`,
+            kind: "inventory" as const,
+            timestamp: evt.timestamp,
+            event: evt,
+        })),
+    ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    const filtered = entries.filter((entry) => filter === "all" || filter === entry.kind);
+
+    if (entries.length === 0) {
         return <EmptyState icon="scroll" message="No tales to tell yet — make your first transaction!" />;
     }
 
     return (
-        <div className="space-y-1">
-            {transactions.map((txn) => {
-                const info = labels[txn.transaction_type] || labels.transfer;
-                return (
-                    <div key={txn.id} className="flex items-start justify-between py-2.5 px-3 rounded-lg border border-border/50 bg-card/70 hover:bg-card transition-colors">
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                                <info.icon className={`w-3.5 h-3.5 ${info.color}`} />
-                                <span className={`text-xs font-medium ${info.color}`}>{info.label}</span>
+        <div className="space-y-2">
+            <div className="flex gap-1.5">
+                {([
+                    ["all", "All"],
+                    ["currency", "Currency"],
+                    ["inventory", "Inventory"],
+                ] as const).map(([id, label]) => (
+                    <button
+                        key={id}
+                        onClick={() => setFilter(id)}
+                        className={`px-3 py-1.5 rounded-md text-xs border transition-all ${
+                            filter === id
+                                ? "bg-primary/20 border-primary/30 text-dnd-red"
+                                : "bg-secondary/20 border-border/30 text-muted-foreground hover:text-foreground"
+                        }`}
+                    >
+                        {label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="space-y-1">
+                {filtered.map((entry) => {
+                    if (entry.kind === "currency") {
+                        const txn = entry.transaction;
+                        const info = currencyLabels[txn.transaction_type] || currencyLabels.transfer;
+                        return (
+                            <div key={entry.id} className="flex items-start justify-between py-2.5 px-3 rounded-lg border border-border/50 bg-card/70 hover:bg-card transition-colors">
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <info.icon className={`w-3.5 h-3.5 ${info.color}`} />
+                                        <span className={`text-xs font-medium ${info.color}`}>{info.label}</span>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                                        {txn.sender_name && <span>{txn.sender_name}</span>}
+                                        {txn.sender_name && txn.receiver_name && " → "}
+                                        {txn.receiver_name && <span>{txn.receiver_name}</span>}
+                                    </p>
+                                    {txn.reason && <p className="text-[11px] text-muted-foreground italic truncate">{txn.reason}</p>}
+                                </div>
+                                <div className="text-right shrink-0 ml-3">
+                                    <CoinDisplay coins={txn.amount_display} size="sm" />
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                        {new Date(txn.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                    </p>
+                                </div>
                             </div>
-                            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                                {txn.sender_name && <span>{txn.sender_name}</span>}
-                                {txn.sender_name && txn.receiver_name && " → "}
-                                {txn.receiver_name && <span>{txn.receiver_name}</span>}
-                            </p>
-                            {txn.reason && <p className="text-[11px] text-muted-foreground italic truncate">{txn.reason}</p>}
+                        );
+                    }
+
+                    const event = entry.event;
+                    const info = inventoryLabels[event.event_type] || inventoryLabels.item_updated;
+                    return (
+                        <div key={entry.id} className="flex items-start justify-between py-2.5 px-3 rounded-lg border border-border/50 bg-card/70 hover:bg-card transition-colors">
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                    <info.icon className={`w-3.5 h-3.5 ${info.color}`} />
+                                    <span className={`text-xs font-medium ${info.color}`}>{info.label}</span>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{event.summary}</p>
+                                {!event.redacted && event.actor_username && (
+                                    <p className="text-[11px] text-muted-foreground italic truncate">by {event.actor_username}</p>
+                                )}
+                            </div>
+                            <div className="text-right shrink-0 ml-3">
+                                {event.old_amount !== null && event.new_amount !== null && (
+                                    <p className="text-[11px] font-medium text-foreground">
+                                        {event.old_amount} → {event.new_amount}
+                                    </p>
+                                )}
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                            </div>
                         </div>
-                        <div className="text-right shrink-0 ml-3">
-                            <CoinDisplay coins={txn.amount_display} size="sm" />
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                                {new Date(txn.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </p>
-                        </div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
         </div>
     );
 }

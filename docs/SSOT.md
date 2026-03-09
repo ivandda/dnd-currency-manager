@@ -55,7 +55,7 @@ A Full-Stack web application designed to run on a Local Area Network (LAN) that 
 
 * **Server-Sent Events (SSE):** The backend emits update events to connected clients so screens refresh instantly without reloading, keeping network load light on the LAN.
   * **Connection:** One SSE connection per authenticated user, scoped to their active party.
-  * **Event Types:** `balance_update`, `transaction_new`, `joint_payment_update`, `party_update`.
+  * **Event Types:** `balance_update`, `transaction_new`, `joint_payment_update`, `party_update`, `inventory_update`.
   * **Reconnection:** Auto-reconnect with exponential backoff on the frontend.
 * **Network Auto-detection:** App includes a backend endpoint (`/api/network/lan-url`) and start script (`start.sh`) to automatically detect the host's actual LAN IP for easy sharing, bypassing Docker networking limitations.
 * **DM Dashboard:** The DM has a real-time overview of every character's wallet and balance in the Party.
@@ -85,6 +85,46 @@ There are two distinct joint payment flows:
   * *Approved:* Everyone accepts, and the money is deducted.
 * **Remainder Handling:** If splitting a payment generates a copper remainder that cannot be divided equally, that indivisible coin is automatically assigned to a random player among those involved.
 
+### 5.5. Inventory Manager
+
+The app includes a simple, party-scoped item inventory system for players and DMs.
+
+**Data model (MVP):**
+* `name` (required)
+* `description_md` (Markdown description, rendered safely in frontend)
+* `amount` (non-negative integer)
+* `owner_character_id` (single owner, nullable for DM stash)
+* `is_public` (privacy flag)
+* `created_at`, `updated_at`, `created_by_user_id`, `updated_by_user_id`
+* `is_active` (soft delete/archive)
+
+**Permissions and behavior:**
+* Players can create items for themselves only.
+* DM can create items for any active player or unassigned stash.
+* Owner can edit their own items; DM can edit any item.
+* Any player can transfer ownership of their own items to any active player.
+* DM can transfer any item to any active player or unassigned stash.
+* DM always sees all items.
+* Non-owner players can only see items marked public.
+* Party inventory is capped at **100 active items** (no pagination).
+* Party archived state blocks all inventory writes.
+* If owner leaves or is kicked, their items are reassigned automatically to unassigned stash.
+
+**History integration:**
+* Inventory lifecycle events are immutable and appear in the same History tab as currency events.
+* Event types: `item_created`, `item_updated`, `item_amount_changed`, `item_visibility_changed`, `item_transferred`, `item_deleted`, `item_restored`.
+* History supports filters: All | Currency | Inventory.
+* Private item history is redacted for unauthorized viewers (`"Private item updated"`), while DM and authorized owners see full detail.
+
+**Lifecycle coverage:**
+1. Create (self/DM/unassigned)
+2. View (privacy-aware)
+3. Update (name/description/amount/visibility)
+4. Transfer ownership
+5. Archive (soft delete)
+6. Restore
+7. Track every transition in immutable history + real-time SSE updates
+
 ## 6. Pages & Navigation
 
 The application is **mobile-responsive** (players will use phones on the LAN).
@@ -96,8 +136,8 @@ The application is **mobile-responsive** (players will use phones on the LAN).
 | Dashboard | `/` | List of user's characters + parties |
 | Create Party | `/party/create` | DM creates a new party (name only) |
 | Join Party | `/party/join` | Enter party code + character name & class |
-| Party View (Player) | `/party/[code]` | Character wallet, transfer, transaction history |
-| Party View (DM) | `/party/[code]/dm` | DM dashboard: all wallets, loot, god mode |
+| Party View (Player) | `/party/[code]` | Character wallet, transfer, inventory, splits, history |
+| Party View (DM) | `/party/[code]/dm` | DM dashboard: wallets, loot, inventory control, god mode |
 | Transaction History | `/party/[code]/history` | Immutable log of all transactions |
 
 ## 7. UI & Design Direction
@@ -108,12 +148,14 @@ The application is **mobile-responsive** (players will use phones on the LAN).
 * **Typography:** Inter (sans-serif) for body text — optimized for mobile readability. Cinzel (serif) for headings — medieval fantasy feel.
 * **Components:** TailwindCSS + shadcn/ui, customized to fit the fantasy theme. Native CSS variables used for theme support.
 * **Responsiveness & Mobile-First:** Players will primarily use phones. Swipeable tabs, ≥44px touch targets. Includes native-feeling features like **Pull-to-Refresh**.
-* **Layout:** 4-tab party view: Party (members, settings) | Treasury (unified transfer card) | Splits (joint payments) | History. 
+* **Layout:** 5-tab party view: Party (members, settings) | Treasury (unified transfer card) | Inventory | Splits (joint payments) | History. 
   * **Bottom Bar:** Mobile-only fixed bottom bar showing character's active coin balance (or DM Badge).
   * **Interactive Coins:** Tapping coins auto-converts the display to that specific denomination on the fly.
   * **Animations:** Smooth number-counting component (`requestAnimationFrame`) for balance changes to highlight additions/deductions naturally.
   * **Empty States:** Themed inline SVGs (swords, chests, scrolls) for empty tabs to prevent blank-screen syndrome.
 * **Transfer Card:** Unified card with 3 modes: Send to member, NPC/Shop purchase, Add to self. Eliminates confusion of multiple separate sections.
+* **Inventory UX:** Search by name/description, owner-aware sections (My Items/Public Party Items for players; All/Unassigned for DM), and archive/restore actions.
+* **Markdown Rendering:** Item descriptions render as sanitized Markdown (no unsafe raw HTML execution).
 
 ## 8. API Design
 
@@ -127,6 +169,8 @@ The application is **mobile-responsive** (players will use phones on the LAN).
   * `/api/parties/{code}/transactions` — Transaction history
   * `/api/parties/{code}/transfers` — Create transfers (P2P, DM loot, DM god mode)
   * `/api/parties/{code}/joint-payments` — Joint payment CRUD and accept/reject
+  * `/api/parties/{code}/inventory` — Inventory CRUD + ownership transfer + archive/restore
+  * `/api/parties/{code}/inventory/history` — Immutable inventory history with privacy-aware redaction
   * `/api/sse` — SSE stream endpoint
 * **Error Handling:** Consistent JSON error responses with `{ "detail": "message" }` format.
 * **Validation:** Pydantic schemas for all request/response bodies.
@@ -165,6 +209,10 @@ FRONTEND_URL=http://localhost:3000
   * Currency conversion logic.
   * Balance mathematics (addition, subtraction, division with random remainders).
   * Insufficient funds validation.
+  * Inventory permissions/privacy matrix (DM vs owner vs other players).
+  * Item lifecycle (create/update/transfer/archive/restore).
+  * Archived party write-blocks and item-cap enforcement (100 active items).
+  * Inventory history redaction behavior and SSE inventory event emission.
 * **Frontend Testing:** Unit tests to ensure UI components correctly translate and render currencies visually.
 
 ---
@@ -281,6 +329,50 @@ class PaymentParticipant(SQLModel, table=True):
     has_accepted: bool = Field(default=False)
 
     joint_payment: JointPayment = Relationship(back_populates="participants")
+
+
+class InventoryEventType(str, Enum):
+    ITEM_CREATED = "item_created"
+    ITEM_UPDATED = "item_updated"
+    ITEM_AMOUNT_CHANGED = "item_amount_changed"
+    ITEM_VISIBILITY_CHANGED = "item_visibility_changed"
+    ITEM_TRANSFERRED = "item_transferred"
+    ITEM_DELETED = "item_deleted"
+    ITEM_RESTORED = "item_restored"
+
+
+class InventoryItem(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    party_id: int = Field(foreign_key="party.id", index=True)
+    name: str = Field(min_length=1, max_length=120)
+    description_md: str = Field(default="", max_length=10000)
+    amount: int = Field(default=1, ge=0)
+    owner_character_id: Optional[int] = Field(default=None, foreign_key="character.id")
+    is_public: bool = Field(default=True)
+    is_active: bool = Field(default=True)
+    created_by_user_id: int = Field(foreign_key="user.id")
+    updated_by_user_id: int = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class InventoryEvent(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    party_id: int = Field(foreign_key="party.id", index=True)
+    item_id: int = Field(foreign_key="inventoryitem.id", index=True)
+    event_type: InventoryEventType
+    actor_user_id: int = Field(foreign_key="user.id")
+    item_name_snapshot: Optional[str] = Field(default=None, max_length=120)
+    owner_character_id: Optional[int] = Field(default=None, foreign_key="character.id")
+    old_owner_character_id: Optional[int] = Field(default=None, foreign_key="character.id")
+    new_owner_character_id: Optional[int] = Field(default=None, foreign_key="character.id")
+    old_amount: Optional[int] = None
+    new_amount: Optional[int] = None
+    old_is_public: Optional[bool] = None
+    new_is_public: Optional[bool] = None
+    is_public_snapshot: bool = Field(default=True)
+    note: Optional[str] = Field(default=None, max_length=500)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 ```
 
 ---

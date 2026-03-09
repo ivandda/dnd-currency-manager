@@ -292,3 +292,63 @@ export const jointPaymentApi = {
             method: "POST",
         }),
 };
+
+// --- Inventory API ---
+
+export const inventoryApi = {
+    list: (code: string, include_archived = true) =>
+        request<import("./types").InventoryItemResponse[]>(
+            `/api/parties/${code}/inventory?include_archived=${include_archived}`
+        ),
+
+    getHistory: (code: string, limit = 200) =>
+        request<import("./types").InventoryHistoryListResponse>(
+            `/api/parties/${code}/inventory/history?limit=${limit}`
+        ),
+
+    create: (
+        code: string,
+        body: {
+            name: string;
+            description_md: string;
+            amount: number;
+            owner_character_id?: number | null;
+            is_public: boolean;
+        }
+    ) =>
+        request<import("./types").InventoryItemResponse>(`/api/parties/${code}/inventory`, {
+            method: "POST",
+            body: JSON.stringify(body),
+        }),
+
+    update: (
+        code: string,
+        itemId: number,
+        body: {
+            name?: string;
+            description_md?: string;
+            amount?: number;
+            is_public?: boolean;
+        }
+    ) =>
+        request<import("./types").InventoryItemResponse>(`/api/parties/${code}/inventory/${itemId}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+        }),
+
+    transfer: (code: string, itemId: number, owner_character_id: number | null) =>
+        request<import("./types").InventoryItemResponse>(`/api/parties/${code}/inventory/${itemId}/transfer`, {
+            method: "POST",
+            body: JSON.stringify({ owner_character_id }),
+        }),
+
+    archive: (code: string, itemId: number) =>
+        request<import("./types").InventoryItemResponse>(`/api/parties/${code}/inventory/${itemId}/archive`, {
+            method: "POST",
+        }),
+
+    restore: (code: string, itemId: number) =>
+        request<import("./types").InventoryItemResponse>(`/api/parties/${code}/inventory/${itemId}/restore`, {
+            method: "POST",
+        }),
+};

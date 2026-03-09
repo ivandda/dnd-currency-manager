@@ -70,6 +70,53 @@ export interface TransactionListResponse {
     page_size: number;
 }
 
+export type InventoryEventType =
+    | "item_created"
+    | "item_updated"
+    | "item_amount_changed"
+    | "item_visibility_changed"
+    | "item_transferred"
+    | "item_deleted"
+    | "item_restored";
+
+export interface InventoryItemResponse {
+    id: number;
+    party_id: number;
+    name: string;
+    description_md: string;
+    amount: number;
+    owner_character_id: number | null;
+    owner_name: string | null;
+    is_public: boolean;
+    is_active: boolean;
+    created_by_user_id: number;
+    updated_by_user_id: number;
+    created_at: string;
+    updated_at: string;
+    can_edit: boolean;
+}
+
+export interface InventoryHistoryEntryResponse {
+    id: number;
+    event_type: InventoryEventType;
+    item_id: number;
+    item_name: string | null;
+    timestamp: string;
+    actor_username: string | null;
+    redacted: boolean;
+    summary: string;
+    old_owner_name: string | null;
+    new_owner_name: string | null;
+    old_amount: number | null;
+    new_amount: number | null;
+    old_is_public: boolean | null;
+    new_is_public: boolean | null;
+}
+
+export interface InventoryHistoryListResponse {
+    events: InventoryHistoryEntryResponse[];
+}
+
 export interface ParticipantResponse {
     character_id: number;
     character_name: string;
