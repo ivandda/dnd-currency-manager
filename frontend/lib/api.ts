@@ -7,12 +7,30 @@
 // will automatically target http://192.168.1.10:8000.
 export function getApiBase(): string {
     const envBase = process.env.NEXT_PUBLIC_API_URL;
-    if (envBase) {
-        return envBase;
+    if (typeof window !== "undefined") {
+        if (envBase) {
+            try {
+                const envUrl = new URL(envBase);
+                const envHost = envUrl.hostname;
+                const currentHost = window.location.hostname;
+                const envIsLocal = envHost === "localhost" || envHost === "127.0.0.1";
+                const currentIsLocal = currentHost === "localhost" || currentHost === "127.0.0.1";
+
+                // Keep explicit remote/tunnel API URLs, but do not force localhost
+                // for LAN clients opening the app from another device.
+                if (!envIsLocal || currentIsLocal) {
+                    return envBase;
+                }
+            } catch {
+                // If NEXT_PUBLIC_API_URL is malformed, ignore and fall back.
+            }
+        }
+
+        return `${window.location.protocol}//${window.location.hostname}:8000`;
     }
 
-    if (typeof window !== "undefined") {
-        return `${window.location.protocol}//${window.location.hostname}:8000`;
+    if (envBase) {
+        return envBase;
     }
     // SSR fallback
     return "http://localhost:8000";
