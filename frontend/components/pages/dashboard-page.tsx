@@ -390,7 +390,7 @@ function ShareUrlBanner() {
             </div>
 
             {(shareWarning || isLocalhost) && (
-                <p className="mt-2 text-xs text-amber-300">
+                <p className="mt-2 text-xs font-medium text-orange-700 dark:text-orange-300">
                     {shareWarning || "Players cannot use localhost from other devices."} If this Wi-Fi blocks device-to-device traffic, use a tunnel like ngrok.
                 </p>
             )}

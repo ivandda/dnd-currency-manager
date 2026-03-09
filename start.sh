@@ -67,4 +67,4 @@ fi
 
 LAN_IP="$DETECTED_IP"
 export LAN_IP
-exec docker compose up "$@"
+exec env LAN_IP="$LAN_IP" docker compose up "$@"
