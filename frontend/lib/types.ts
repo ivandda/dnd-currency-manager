@@ -31,6 +31,8 @@ export interface CharacterInParty {
     character_class: string;
     balance_cp: number;
     balance_display: Record<string, number>;
+    balance_visible_to_viewer: boolean;
+    is_balance_public: boolean;
     is_active: boolean;
     user_id: number;
     username: string;
@@ -38,7 +40,14 @@ export interface CharacterInParty {
 
 export interface PartyDetail extends Party {
     dm_username: string;
+    my_coin_settings: CoinSettings;
     characters: CharacterInParty[];
+}
+
+export interface CoinSettings {
+    use_gold: boolean;
+    use_electrum: boolean;
+    use_platinum: boolean;
 }
 
 export interface TransactionResponse {

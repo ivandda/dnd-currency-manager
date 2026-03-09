@@ -40,6 +40,7 @@ class PartyDetailResponse(PartyResponse):
     """Party details including character list."""
 
     dm_username: str
+    my_coin_settings: "CoinSettingsResponse"
     characters: list["CharacterInParty"] = []
 
 
@@ -51,6 +52,8 @@ class CharacterInParty(BaseModel):
     character_class: str
     balance_cp: int
     balance_display: dict[str, int] = {}
+    balance_visible_to_viewer: bool = True
+    is_balance_public: bool = True
     is_active: bool
     user_id: int
     username: str
@@ -65,8 +68,28 @@ class KickRequest(BaseModel):
 
 
 class PartyUpdateCoins(BaseModel):
-    """Request body for updating party coin configuration."""
+    """Request body for updating a user's coin settings."""
 
     use_gold: Optional[bool] = None
     use_electrum: Optional[bool] = None
     use_platinum: Optional[bool] = None
+
+
+class CoinSettingsResponse(BaseModel):
+    """Current user coin settings inside a party."""
+
+    use_gold: bool
+    use_electrum: bool
+    use_platinum: bool
+
+
+class CharacterSettingsUpdate(BaseModel):
+    """Request body for updating current character settings in a party."""
+
+    is_balance_public: Optional[bool] = None
+
+
+class CharacterSettingsResponse(BaseModel):
+    """Current character settings for this party."""
+
+    is_balance_public: bool

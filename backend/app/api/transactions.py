@@ -3,9 +3,10 @@
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, select, func
 
+from app.core.coin_preferences import CoinConfig, get_party_coin_config
 from app.core.currency import cp_to_breakdown
 from app.core.database import get_session
-from app.core.dependencies import get_current_user, get_party_by_code
+from app.core.dependencies import get_party_by_code, require_party_member_or_dm
 from app.models.character import Character
 from app.models.party import Party
 from app.models.transaction import Transaction
@@ -16,14 +17,16 @@ router = APIRouter(prefix="/api/parties/{code}/transactions", tags=["transaction
 
 
 def _transaction_to_response(
-    txn: Transaction, party: Party, session: Session
+    txn: Transaction,
+    coin_settings: CoinConfig,
+    session: Session,
 ) -> TransactionResponse:
     """Convert a Transaction model to a display response."""
     breakdown = cp_to_breakdown(
         txn.amount_cp,
-        use_platinum=party.use_platinum,
-        use_gold=party.use_gold,
-        use_electrum=party.use_electrum,
+        use_platinum=coin_settings.use_platinum,
+        use_gold=coin_settings.use_gold,
+        use_electrum=coin_settings.use_electrum,
     )
 
     sender_name = None
@@ -40,9 +43,9 @@ def _transaction_to_response(
         transaction_type=txn.transaction_type,
         amount_cp=txn.amount_cp,
         amount_display=breakdown.to_display_dict(
-            use_platinum=party.use_platinum,
-            use_gold=party.use_gold,
-            use_electrum=party.use_electrum,
+            use_platinum=coin_settings.use_platinum,
+            use_gold=coin_settings.use_gold,
+            use_electrum=coin_settings.use_electrum,
         ),
         reason=txn.reason,
         timestamp=txn.timestamp,
@@ -56,27 +59,13 @@ def _transaction_to_response(
 @router.get("", response_model=TransactionListResponse)
 def get_transaction_history(
     party: Party = Depends(get_party_by_code),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_party_member_or_dm),
     session: Session = Depends(get_session),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ):
     """Get paginated transaction history for a party."""
-    # Verify membership
-    is_dm = party.dm_id == current_user.id
-    if not is_dm:
-        user_char = session.exec(
-            select(Character).where(
-                Character.user_id == current_user.id,
-                Character.party_id == party.id,
-            )
-        ).first()
-        if not user_char:
-            from fastapi import HTTPException, status
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not a member of this party",
-            )
+    viewer_coin_settings = get_party_coin_config(session, party, current_user.id)
 
     # Count total
     total = session.exec(
@@ -97,7 +86,8 @@ def get_transaction_history(
 
     return TransactionListResponse(
         transactions=[
-            _transaction_to_response(txn, party, session) for txn in transactions
+            _transaction_to_response(txn, viewer_coin_settings, session)
+            for txn in transactions
         ],
         total=total,
         page=page,

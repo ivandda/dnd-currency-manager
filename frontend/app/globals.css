@@ -49,6 +49,16 @@
   --color-platinum: var(--platinum);
   --color-electrum: var(--electrum);
   --color-dnd-red: var(--dnd-red);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -80,16 +90,28 @@
   --secondary-foreground: oklch(0.88 0.01 265);
   /* Muted dark blue-gray */
   --muted: oklch(0.23 0.015 265);
-  --muted-foreground: oklch(0.60 0.02 265);
+  --muted-foreground: oklch(0.72 0.02 265);
   /* Subtle blue accent */
   --accent: oklch(0.30 0.04 265);
   --accent-foreground: oklch(0.93 0.005 265);
   /* Red destructive */
   --destructive: oklch(0.55 0.22 25);
   /* Visible borders */
-  --border: oklch(0.30 0.02 265);
-  --input: oklch(0.25 0.015 265);
+  --border: oklch(0.38 0.02 265);
+  --input: oklch(0.30 0.02 265);
   --ring: oklch(0.55 0.2 25);
+  /* Semantic surfaces */
+  --surface-1: oklch(0.17 0.02 265);
+  --surface-2: oklch(0.20 0.02 265);
+  --surface-3: oklch(0.24 0.02 265);
+  /* Semantic states */
+  --success: oklch(0.78 0.13 150);
+  --success-soft: oklch(0.36 0.05 150);
+  --warning: oklch(0.80 0.14 85);
+  --warning-soft: oklch(0.36 0.05 85);
+  --danger: oklch(0.70 0.17 25);
+  --danger-soft: oklch(0.35 0.06 25);
+  --info: oklch(0.76 0.10 250);
   /* Charts */
   --chart-1: oklch(0.55 0.2 25);
   --chart-2: oklch(0.60 0.15 160);
@@ -146,6 +168,18 @@
   --border: oklch(0.76 0.03 80);
   --input: oklch(0.86 0.025 80);
   --ring: oklch(0.48 0.2 25);
+  /* Semantic surfaces */
+  --surface-1: oklch(0.92 0.02 80);
+  --surface-2: oklch(0.94 0.018 80);
+  --surface-3: oklch(0.96 0.015 80);
+  /* Semantic states */
+  --success: oklch(0.50 0.14 155);
+  --success-soft: oklch(0.90 0.05 155);
+  --warning: oklch(0.56 0.14 85);
+  --warning-soft: oklch(0.92 0.05 85);
+  --danger: oklch(0.54 0.20 25);
+  --danger-soft: oklch(0.91 0.05 25);
+  --info: oklch(0.50 0.12 250);
   /* Charts */
   --chart-1: oklch(0.48 0.2 25);
   --chart-2: oklch(0.50 0.15 160);
@@ -196,10 +230,10 @@
 @layer utilities {
   .card-medieval {
     background: linear-gradient(135deg,
-        oklch(0.20 0.02 265) 0%,
-        oklch(0.22 0.025 265) 50%,
-        oklch(0.20 0.02 265) 100%);
-    border: 1px solid oklch(0.33 0.03 265 / 50%);
+        var(--surface-2) 0%,
+        var(--surface-3) 50%,
+        var(--surface-2) 100%);
+    border: 1px solid oklch(0.42 0.02 265 / 60%);
     box-shadow:
       0 2px 8px oklch(0 0 0 / 30%),
       inset 0 1px 0 oklch(1 0 0 / 4%);
@@ -208,9 +242,9 @@
 
   .light .card-medieval {
     background: linear-gradient(135deg,
-        oklch(0.94 0.018 80) 0%,
-        oklch(0.92 0.022 80) 50%,
-        oklch(0.94 0.018 80) 100%);
+        var(--surface-2) 0%,
+        var(--surface-1) 50%,
+        var(--surface-2) 100%);
     border: 1px solid oklch(0.72 0.04 80);
     box-shadow:
       0 2px 6px oklch(0.4 0.03 80 / 15%),
@@ -264,6 +298,34 @@
 
   .glow-red {
     text-shadow: 0 0 12px oklch(0.55 0.2 25 / 40%);
+  }
+
+  .text-success {
+    color: var(--success);
+  }
+
+  .text-warning {
+    color: var(--warning);
+  }
+
+  .text-danger {
+    color: var(--danger);
+  }
+
+  .text-info {
+    color: var(--info);
+  }
+
+  .bg-success-soft {
+    background-color: color-mix(in oklab, var(--success-soft) 55%, transparent);
+  }
+
+  .bg-warning-soft {
+    background-color: color-mix(in oklab, var(--warning-soft) 55%, transparent);
+  }
+
+  .bg-danger-soft {
+    background-color: color-mix(in oklab, var(--danger-soft) 55%, transparent);
   }
 
   .bg-parchment {
@@ -332,9 +394,4 @@
   100% {
     filter: brightness(1);
   }
-}
-
-/* Pull-to-refresh indicator */
-.pull-indicator {
-  transition: transform 0.2s ease, opacity 0.2s ease;
 }

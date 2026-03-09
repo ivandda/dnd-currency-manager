@@ -59,7 +59,7 @@ async function request<T>(
             headers,
             credentials: "include", // Send cookies (refresh token)
         });
-    } catch (err) {
+    } catch {
         // Network-level failure (DNS, cold start, CORS preflight timeout).
         // Retry once after a short delay — this fixes the common "first
         // request after load fails" issue with Docker/LAN setups.
@@ -179,10 +179,16 @@ export const partyApi = {
             method: "PATCH",
         }),
 
-    updateCoins: (code: string, config: { use_gold?: boolean; use_electrum?: boolean; use_platinum?: boolean }) =>
-        request<import("./types").Party>(`/api/parties/${code}/coins`, {
+    updateMyCoins: (code: string, config: { use_gold?: boolean; use_electrum?: boolean; use_platinum?: boolean }) =>
+        request<import("./types").CoinSettings>(`/api/parties/${code}/my-coins`, {
             method: "PATCH",
             body: JSON.stringify(config),
+        }),
+
+    updateMyCharacterSettings: (code: string, settings: { is_balance_public?: boolean }) =>
+        request<{ is_balance_public: boolean }>(`/api/parties/${code}/my-character-settings`, {
+            method: "PATCH",
+            body: JSON.stringify(settings),
         }),
 };
 

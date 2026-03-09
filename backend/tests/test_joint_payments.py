@@ -81,6 +81,49 @@ class TestCreateJointPayment:
         assert response.status_code == 400
         assert "insufficient funds" in response.json()["detail"].lower()
 
+    def test_remainder_is_randomly_assigned_on_create(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+        second_character: Character,
+    ):
+        response = client.post(
+            f"/api/parties/{test_party.code}/joint-payments",
+            json={
+                "character_ids": [test_character.id, second_character.id],
+                "amount": {"cp": 101},
+                "reason": "Random remainder test",
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 201
+        data = response.json()
+        shares = sorted(p["share_cp"] for p in data["participants"])
+        assert shares == [50, 51]
+        assert sum(shares) == 101
+
+    def test_create_deduplicates_participants(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        test_party: Party,
+        test_character: Character,
+        second_character: Character,
+    ):
+        response = client.post(
+            f"/api/parties/{test_party.code}/joint-payments",
+            json={
+                "character_ids": [test_character.id, test_character.id, second_character.id],
+                "amount": {"gp": 10},
+            },
+            headers=auth_headers,
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data["participants"]) == 2
+
 
 class TestAcceptJointPayment:
     """Test accepting joint payment requests."""
@@ -699,4 +742,3 @@ class TestSplitToMember:
         )
         assert response.status_code == 404
         assert "receiver" in response.json()["detail"].lower()
-

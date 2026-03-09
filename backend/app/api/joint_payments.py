@@ -3,14 +3,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select, update
 
+from app.core.coin_preferences import CoinConfig, get_party_coin_config
 from app.core.currency import coins_to_cp, cp_to_breakdown, split_amount
 from app.core.database import get_session
 from app.core.dependencies import (
-    get_current_user,
     get_party_by_code,
     get_user_character_in_party,
     require_active_party,
     require_dm,
+    require_party_member_or_dm,
 )
 from app.core.events import event_manager
 from app.models.character import Character
@@ -33,14 +34,17 @@ router = APIRouter(prefix="/api/parties/{code}/joint-payments", tags=["joint-pay
 
 
 def _payment_to_response(
-    payment: JointPayment, party: Party, session: Session
+    payment: JointPayment,
+    party: Party,
+    coin_settings: CoinConfig,
+    session: Session,
 ) -> JointPaymentResponse:
     """Convert a JointPayment model to a display response."""
     breakdown = cp_to_breakdown(
         payment.total_amount_cp,
-        use_platinum=party.use_platinum,
-        use_gold=party.use_gold,
-        use_electrum=party.use_electrum,
+        use_platinum=coin_settings.use_platinum,
+        use_gold=coin_settings.use_gold,
+        use_electrum=coin_settings.use_electrum,
     )
 
     creator_name = None
@@ -63,9 +67,9 @@ def _payment_to_response(
         char = session.get(Character, p.character_id)
         share_breakdown = cp_to_breakdown(
             p.share_cp,
-            use_platinum=party.use_platinum,
-            use_gold=party.use_gold,
-            use_electrum=party.use_electrum,
+            use_platinum=coin_settings.use_platinum,
+            use_gold=coin_settings.use_gold,
+            use_electrum=coin_settings.use_electrum,
         )
         participant_responses.append(
             ParticipantResponse(
@@ -73,9 +77,9 @@ def _payment_to_response(
                 character_name=char.name if char else "Unknown",
                 share_cp=p.share_cp,
                 share_display=share_breakdown.to_display_dict(
-                    use_platinum=party.use_platinum,
-                    use_gold=party.use_gold,
-                    use_electrum=party.use_electrum,
+                    use_platinum=coin_settings.use_platinum,
+                    use_gold=coin_settings.use_gold,
+                    use_electrum=coin_settings.use_electrum,
                 ),
                 has_accepted=p.has_accepted,
             )
@@ -96,9 +100,9 @@ def _payment_to_response(
         receiver_name=receiver_name,
         total_amount_cp=payment.total_amount_cp,
         total_amount_display=breakdown.to_display_dict(
-            use_platinum=party.use_platinum,
-            use_gold=party.use_gold,
-            use_electrum=party.use_electrum,
+            use_platinum=coin_settings.use_platinum,
+            use_gold=coin_settings.use_gold,
+            use_electrum=coin_settings.use_electrum,
         ),
         reason=payment.reason,
         status=payment.status,
@@ -115,6 +119,8 @@ async def create_joint_payment_as_player(
     session: Session = Depends(get_session),
 ):
     """Player creates a joint payment request split among selected characters."""
+    viewer_coin_settings = get_party_coin_config(session, party, creator_char.user_id)
+
     try:
         total_cp = coins_to_cp(**body.amount)
     except ValueError as e:
@@ -127,7 +133,7 @@ async def create_joint_payment_as_player(
         )
 
     # De-duplicate characters to avoid overcharging and incorrect split math
-    unique_character_ids = list(set(body.character_ids))
+    unique_character_ids = list(dict.fromkeys(body.character_ids))
 
     # Validate receiver if paying a party member
     if body.receiver_character_id is not None:
@@ -195,7 +201,7 @@ async def create_joint_payment_as_player(
         party.id, "joint_payment_update", {"payment_id": payment.id, "status": "pending"}
     )
 
-    return _payment_to_response(payment, party, session)
+    return _payment_to_response(payment, party, viewer_coin_settings, session)
 
 
 @router.post("/dm", response_model=JointPaymentResponse, status_code=status.HTTP_201_CREATED)
@@ -206,6 +212,8 @@ async def create_joint_payment_as_dm(
     session: Session = Depends(get_session),
 ):
     """DM creates a charge split among selected characters."""
+    viewer_coin_settings = get_party_coin_config(session, party, dm_user.id)
+
     try:
         total_cp = coins_to_cp(**body.amount)
     except ValueError as e:
@@ -218,7 +226,7 @@ async def create_joint_payment_as_dm(
         )
 
     # De-duplicate characters to avoid overcharging and incorrect split math
-    unique_character_ids = list(set(body.character_ids))
+    unique_character_ids = list(dict.fromkeys(body.character_ids))
 
     # Validate receiver if paying a party member
     if body.receiver_character_id is not None:
@@ -280,23 +288,24 @@ async def create_joint_payment_as_dm(
         party.id, "joint_payment_update", {"payment_id": payment.id, "status": "pending"}
     )
 
-    return _payment_to_response(payment, party, session)
+    return _payment_to_response(payment, party, viewer_coin_settings, session)
 
 
 @router.get("", response_model=list[JointPaymentResponse])
 def list_joint_payments(
     party: Party = Depends(get_party_by_code),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_party_member_or_dm),
     session: Session = Depends(get_session),
 ):
     """List all joint payments for a party (most recent first)."""
+    viewer_coin_settings = get_party_coin_config(session, party, current_user.id)
     payments = session.exec(
         select(JointPayment)
         .where(JointPayment.party_id == party.id)
         .order_by(JointPayment.created_at.desc())
     ).all()
 
-    return [_payment_to_response(p, party, session) for p in payments]
+    return [_payment_to_response(p, party, viewer_coin_settings, session) for p in payments]
 
 
 @router.post("/{payment_id}/accept", response_model=JointPaymentResponse)
@@ -307,6 +316,8 @@ async def accept_joint_payment(
     session: Session = Depends(get_session),
 ):
     """Accept a joint payment request."""
+    viewer_coin_settings = get_party_coin_config(session, party, character.user_id)
+
     payment = session.get(JointPayment, payment_id)
     if not payment or payment.party_id != party.id:
         raise HTTPException(
@@ -380,7 +391,7 @@ async def accept_joint_payment(
         if result.rowcount == 0:
             # Another request already executed or cancelled it
             session.refresh(payment)
-            return _payment_to_response(payment, party, session)
+            return _payment_to_response(payment, party, viewer_coin_settings, session)
 
         # Execute the payment: deduct from all participants
         for p in all_participants:
@@ -449,7 +460,7 @@ async def accept_joint_payment(
             {"payment_id": payment.id, "status": "pending"}
         )
 
-    return _payment_to_response(payment, party, session)
+    return _payment_to_response(payment, party, viewer_coin_settings, session)
 
 
 @router.post("/{payment_id}/reject", response_model=JointPaymentResponse)
@@ -460,6 +471,8 @@ async def reject_joint_payment(
     session: Session = Depends(get_session),
 ):
     """Reject a joint payment request. Immediately sets status to rejected."""
+    viewer_coin_settings = get_party_coin_config(session, party, character.user_id)
+
     payment = session.get(JointPayment, payment_id)
     if not payment or payment.party_id != party.id:
         raise HTTPException(
@@ -496,17 +509,18 @@ async def reject_joint_payment(
         {"payment_id": payment.id, "status": "rejected"}
     )
 
-    return _payment_to_response(payment, party, session)
+    return _payment_to_response(payment, party, viewer_coin_settings, session)
 
 
 @router.post("/{payment_id}/cancel", response_model=JointPaymentResponse)
 async def cancel_joint_payment(
     payment_id: int,
     party: Party = Depends(require_active_party),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_party_member_or_dm),
     session: Session = Depends(get_session),
 ):
     """Cancel a pending joint payment. Only the creator can cancel."""
+    viewer_coin_settings = get_party_coin_config(session, party, current_user.id)
     payment = session.get(JointPayment, payment_id)
     if not payment or payment.party_id != party.id:
         raise HTTPException(
@@ -544,4 +558,4 @@ async def cancel_joint_payment(
         {"payment_id": payment.id, "status": "cancelled"}
     )
 
-    return _payment_to_response(payment, party, session)
+    return _payment_to_response(payment, party, viewer_coin_settings, session)
