@@ -27,7 +27,7 @@ import { usePartySSE } from "@/hooks/use-party-sse";
 import { toast } from "sonner";
 import {
     Castle, CircleDollarSign, Handshake, Scroll, Shield, Check, Crown, ArrowLeft,
-    Zap, Gem, ArrowUpRight, Store, PlusCircle, Copy, Archive, Settings, Plus, Minus, X, Sun, Moon, Package
+    Zap, Gem, ArrowUpRight, Store, PlusCircle, Copy, Archive, Settings, Plus, Minus, X, Sun, Moon, Package, ChevronDown, ChevronUp
 } from "lucide-react";
 
 interface PartyViewProps {
@@ -1141,12 +1141,14 @@ function InventoryTab({
     onRefresh: () => void;
 }) {
     const [search, setSearch] = useState("");
+    const [showCreateForm, setShowCreateForm] = useState(false);
     const [creating, setCreating] = useState(false);
     const [newName, setNewName] = useState("");
     const [newDescription, setNewDescription] = useState("");
     const [newAmount, setNewAmount] = useState("1");
     const [newIsPublic, setNewIsPublic] = useState(true);
     const [newOwner, setNewOwner] = useState<string>(myCharacter ? String(myCharacter.id) : "unassigned");
+    const newDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
 
     const [editingItem, setEditingItem] = useState<InventoryItemResponse | null>(null);
     const [editName, setEditName] = useState("");
@@ -1154,10 +1156,20 @@ function InventoryTab({
     const [editAmount, setEditAmount] = useState("1");
     const [editIsPublic, setEditIsPublic] = useState(true);
     const [savingEdit, setSavingEdit] = useState(false);
+    const editDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
 
     const [transferItem, setTransferItem] = useState<InventoryItemResponse | null>(null);
     const [transferOwner, setTransferOwner] = useState("unassigned");
     const [transferring, setTransferring] = useState(false);
+    const [activeSection, setActiveSection] = useState<"all" | "stash" | "mine" | "public" | "archived">(
+        isDM ? "all" : "mine"
+    );
+
+    const autoGrow = (el: HTMLTextAreaElement | null) => {
+        if (!el) return;
+        el.style.height = "auto";
+        el.style.height = `${Math.max(130, el.scrollHeight)}px`;
+    };
 
     const myCharId = myCharacter?.id ?? null;
     const query = search.trim().toLowerCase();
@@ -1176,6 +1188,51 @@ function InventoryTab({
     const myItems = activeItems.filter((item) => item.owner_character_id === myCharId);
     const publicPartyItems = activeItems.filter((item) => item.owner_character_id !== myCharId && item.is_public);
     const unassignedItems = activeItems.filter((item) => item.owner_character_id === null);
+
+    useEffect(() => {
+        setActiveSection(isDM ? "all" : "mine");
+    }, [isDM]);
+
+    useEffect(() => {
+        autoGrow(newDescriptionRef.current);
+    }, [newDescription, showCreateForm]);
+
+    useEffect(() => {
+        autoGrow(editDescriptionRef.current);
+    }, [editDescription, editingItem]);
+
+    const sectionTabs = isDM
+        ? ([
+            { id: "all" as const, label: "All Items", count: activeItems.length },
+            { id: "stash" as const, label: "Unassigned Stash", count: unassignedItems.length },
+            { id: "archived" as const, label: "Archived", count: editableArchivedItems.length },
+        ])
+        : ([
+            { id: "mine" as const, label: "My Items", count: myItems.length },
+            { id: "public" as const, label: "Public Party", count: publicPartyItems.length },
+            { id: "archived" as const, label: "Archived", count: editableArchivedItems.length },
+        ]);
+
+    const selectedItems = activeSection === "all"
+        ? activeItems
+        : activeSection === "stash"
+            ? unassignedItems
+            : activeSection === "mine"
+                ? myItems
+                : activeSection === "public"
+                    ? publicPartyItems
+                    : editableArchivedItems;
+
+    const selectedShowOwner = activeSection === "all" || activeSection === "public" || activeSection === "archived";
+    const selectedEmptyMessage = activeSection === "all"
+        ? "No active items yet."
+        : activeSection === "stash"
+            ? "Unassigned stash is empty."
+            : activeSection === "mine"
+                ? "You do not own any active items."
+                : activeSection === "public"
+                    ? "No public party items available."
+                    : "No archived items available.";
 
     const submitCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1201,6 +1258,7 @@ function InventoryTab({
             setNewAmount("1");
             setNewIsPublic(true);
             setNewOwner(myCharId ? String(myCharId) : "unassigned");
+            setShowCreateForm(false);
             onRefresh();
         } catch (err: unknown) {
             toast.error(err instanceof Error ? err.message : "Failed");
@@ -1292,159 +1350,142 @@ function InventoryTab({
 
     return (
         <div className="space-y-4">
-            <Card className="card-medieval border-border/30">
-                <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                        <Package className="w-4 h-4 text-primary" /> Add Item
-                    </CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground">
-                        Keep party inventory synchronized in real-time.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={submitCreate} className="space-y-3">
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Name</Label>
-                            <Input value={newName} onChange={(e) => setNewName(e.target.value)} maxLength={120} placeholder="Health Potion" />
-                        </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 sm:w-auto border-dashed"
+                    onClick={() => setShowCreateForm((prev) => !prev)}
+                >
+                    <Package className="w-4 h-4 mr-1.5" />
+                    Add Item
+                    {showCreateForm ? <ChevronUp className="w-4 h-4 ml-2" /> : <ChevronDown className="w-4 h-4 ml-2" />}
+                </Button>
+                <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search items by name or description..."
+                    className="h-10"
+                />
+            </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {showCreateForm && (
+                <Card className="card-medieval border-border/30">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <Package className="w-4 h-4 text-primary" /> New Item
+                        </CardTitle>
+                        <CardDescription className="text-xs text-muted-foreground">
+                            Keep party inventory synchronized in real-time.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={submitCreate} className="space-y-3">
                             <div className="space-y-1.5">
-                                <Label className="text-xs">Amount</Label>
-                                <Input
-                                    type="number"
-                                    min={0}
-                                    step={1}
-                                    value={newAmount}
-                                    onChange={(e) => setNewAmount(e.target.value)}
+                                <Label className="text-xs">Name</Label>
+                                <Input value={newName} onChange={(e) => setNewName(e.target.value)} maxLength={120} placeholder="Health Potion" />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs">Amount</Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        step={1}
+                                        value={newAmount}
+                                        onChange={(e) => setNewAmount(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs">Visibility</Label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setNewIsPublic(!newIsPublic)}
+                                        className="h-10 w-full rounded-md border border-border/50 bg-secondary/20 px-3 text-xs text-left"
+                                    >
+                                        {newIsPublic ? "Public to party" : "Private (DM + owner only)"}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {isDM && (
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs">Owner</Label>
+                                    <select
+                                        value={newOwner}
+                                        onChange={(e) => setNewOwner(e.target.value)}
+                                        className="h-10 w-full rounded-md border border-border/50 bg-secondary/20 px-3 text-sm"
+                                    >
+                                        <option value="unassigned">Unassigned stash</option>
+                                        {characters.map((char) => (
+                                            <option key={char.id} value={String(char.id)}>
+                                                {char.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Description (Markdown)</Label>
+                                <textarea
+                                    ref={newDescriptionRef}
+                                    value={newDescription}
+                                    onChange={(e) => {
+                                        setNewDescription(e.target.value);
+                                        autoGrow(e.target);
+                                    }}
+                                    maxLength={10000}
+                                    rows={4}
+                                    className="w-full rounded-md border border-border/50 bg-secondary/20 px-3 py-2 text-sm resize-none overflow-hidden"
+                                    placeholder="Use tables, lists, **bold**, and links."
                                 />
                             </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">Visibility</Label>
-                                <button
-                                    type="button"
-                                    onClick={() => setNewIsPublic(!newIsPublic)}
-                                    className="h-10 w-full rounded-md border border-border/50 bg-secondary/20 px-3 text-xs text-left"
-                                >
-                                    {newIsPublic ? "Public to party" : "Private (DM + owner only)"}
-                                </button>
-                            </div>
-                        </div>
 
-                        {isDM && (
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">Owner</Label>
-                                <select
-                                    value={newOwner}
-                                    onChange={(e) => setNewOwner(e.target.value)}
-                                    className="h-10 w-full rounded-md border border-border/50 bg-secondary/20 px-3 text-sm"
-                                >
-                                    <option value="unassigned">Unassigned stash</option>
-                                    {characters.map((char) => (
-                                        <option key={char.id} value={String(char.id)}>
-                                            {char.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                            {newDescription.trim() && (
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs">Preview</Label>
+                                    <div className="rounded-md border border-border/40 bg-secondary/10 px-3 py-2">
+                                        <SimpleMarkdown markdown={newDescription} />
+                                    </div>
+                                </div>
+                            )}
 
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Description (Markdown)</Label>
-                            <textarea
-                                value={newDescription}
-                                onChange={(e) => setNewDescription(e.target.value)}
-                                maxLength={10000}
-                                rows={4}
-                                className="w-full rounded-md border border-border/50 bg-secondary/20 px-3 py-2 text-sm"
-                                placeholder="Use **bold**, *italics*, lists, and links."
-                            />
-                        </div>
-
-                        <Button type="submit" className="w-full h-10" disabled={creating}>
-                            {creating ? "Creating..." : "Create Item"}
-                        </Button>
-                    </form>
-                </CardContent>
-            </Card>
-
-            <Card className="card-medieval border-border/30">
-                <CardContent className="pt-4">
-                    <Input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search items by name or description..."
-                    />
-                </CardContent>
-            </Card>
-
-            {isDM ? (
-                <>
-                    <InventorySection
-                        title="All Items"
-                        emptyMessage="No active items yet."
-                        items={activeItems}
-                        showOwner
-                        onEdit={openEdit}
-                        onTransfer={openTransfer}
-                        onArchive={handleArchive}
-                        onRestore={handleRestore}
-                    />
-                    <InventorySection
-                        title="Unassigned Stash"
-                        emptyMessage="Unassigned stash is empty."
-                        items={unassignedItems}
-                        showOwner={false}
-                        onEdit={openEdit}
-                        onTransfer={openTransfer}
-                        onArchive={handleArchive}
-                        onRestore={handleRestore}
-                    />
-                </>
-            ) : (
-                <>
-                    <InventorySection
-                        title="My Items"
-                        emptyMessage="You do not own any active items."
-                        items={myItems}
-                        showOwner={false}
-                        onEdit={openEdit}
-                        onTransfer={openTransfer}
-                        onArchive={handleArchive}
-                        onRestore={handleRestore}
-                    />
-                    <InventorySection
-                        title="Public Party Items"
-                        emptyMessage="No public party items available."
-                        items={publicPartyItems}
-                        showOwner
-                        onEdit={openEdit}
-                        onTransfer={openTransfer}
-                        onArchive={handleArchive}
-                        onRestore={handleRestore}
-                    />
-                </>
+                            <Button type="submit" className="w-full h-10" disabled={creating}>
+                                {creating ? "Creating..." : "Create Item"}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
             )}
 
-            {editableArchivedItems.length > 0 && (
-                <details className="text-sm">
-                    <summary className="text-muted-foreground cursor-pointer hover:text-foreground text-xs">
-                        Archived items ({editableArchivedItems.length})
-                    </summary>
-                    <div className="mt-2">
-                        <InventorySection
-                            title=""
-                            emptyMessage=""
-                            items={editableArchivedItems}
-                            showOwner
-                            onEdit={openEdit}
-                            onTransfer={openTransfer}
-                            onArchive={handleArchive}
-                            onRestore={handleRestore}
-                        />
-                    </div>
-                </details>
-            )}
+            <div className="flex flex-wrap gap-1.5">
+                {sectionTabs.map((tab) => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveSection(tab.id)}
+                        className={`px-3 py-1.5 rounded-md text-xs border transition-all ${
+                            activeSection === tab.id
+                                ? "bg-primary/20 border-primary/30 text-dnd-red"
+                                : "bg-secondary/20 border-border/30 text-muted-foreground hover:text-foreground"
+                        }`}
+                    >
+                        {tab.label} ({tab.count})
+                    </button>
+                ))}
+            </div>
+
+            <InventorySection
+                title=""
+                emptyMessage={selectedEmptyMessage}
+                items={selectedItems}
+                showOwner={selectedShowOwner}
+                onEdit={openEdit}
+                onTransfer={openTransfer}
+                onArchive={handleArchive}
+                onRestore={handleRestore}
+            />
 
             <Dialog open={Boolean(editingItem)} onOpenChange={(open) => { if (!open) setEditingItem(null); }}>
                 <DialogContent className="card-medieval border-border/40 sm:max-w-md">
@@ -1473,13 +1514,25 @@ function InventoryTab({
                         <div className="space-y-1.5">
                             <Label className="text-xs">Description (Markdown)</Label>
                             <textarea
+                                ref={editDescriptionRef}
                                 value={editDescription}
-                                onChange={(e) => setEditDescription(e.target.value)}
+                                onChange={(e) => {
+                                    setEditDescription(e.target.value);
+                                    autoGrow(e.target);
+                                }}
                                 maxLength={10000}
                                 rows={5}
-                                className="w-full rounded-md border border-border/50 bg-secondary/20 px-3 py-2 text-sm"
+                                className="w-full rounded-md border border-border/50 bg-secondary/20 px-3 py-2 text-sm resize-none overflow-hidden"
                             />
                         </div>
+                        {editDescription.trim() && (
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Preview</Label>
+                                <div className="rounded-md border border-border/40 bg-secondary/10 px-3 py-2">
+                                    <SimpleMarkdown markdown={editDescription} />
+                                </div>
+                            </div>
+                        )}
                         <Button type="submit" className="w-full h-10" disabled={savingEdit}>
                             {savingEdit ? "Saving..." : "Save Changes"}
                         </Button>
