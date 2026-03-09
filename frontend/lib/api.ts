@@ -6,11 +6,16 @@
 // When a LAN device opens http://192.168.1.10:3000, the API client
 // will automatically target http://192.168.1.10:8000.
 export function getApiBase(): string {
+    const envBase = process.env.NEXT_PUBLIC_API_URL;
+    if (envBase) {
+        return envBase;
+    }
+
     if (typeof window !== "undefined") {
-        return `http://${window.location.hostname}:8000`;
+        return `${window.location.protocol}//${window.location.hostname}:8000`;
     }
     // SSR fallback
-    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    return "http://localhost:8000";
 }
 
 
