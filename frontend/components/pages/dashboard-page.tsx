@@ -169,6 +169,8 @@ export default function DashboardPage() {
                                                     value={createName}
                                                     onChange={(e) => setCreateName(e.target.value)}
                                                     className="bg-secondary/30"
+                                                    autoCapitalize="none"
+                                                    autoCorrect="off"
                                                     required
                                                 />
                                             </div>
@@ -201,6 +203,8 @@ export default function DashboardPage() {
                                                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                                                     className="bg-secondary/30 text-center text-2xl tracking-[0.3em] font-mono uppercase"
                                                     maxLength={4}
+                                                    autoCapitalize="none"
+                                                    autoCorrect="off"
                                                     required
                                                 />
                                             </div>
@@ -212,6 +216,8 @@ export default function DashboardPage() {
                                                     value={charName}
                                                     onChange={(e) => setCharName(e.target.value)}
                                                     className="bg-secondary/30"
+                                                    autoCapitalize="none"
+                                                    autoCorrect="off"
                                                     required
                                                 />
                                             </div>
@@ -222,6 +228,8 @@ export default function DashboardPage() {
                                                     value={charClass}
                                                     onChange={(e) => setCharClass(e.target.value)}
                                                     className="bg-secondary/30"
+                                                    autoCapitalize="none"
+                                                    autoCorrect="off"
                                                     required
                                                 />
                                             </div>
