@@ -462,7 +462,7 @@ async def transfer_inventory_item(
     viewer_char_id = viewer_char.id if viewer_char else None
     is_dm = party.dm_id == current_user.id
 
-    item = _get_item_or_404(session, party.id, item_id, include_archived=True)
+    item = _get_item_or_404(session, party.id, item_id, include_archived=False)
     if not _can_edit_item(item, is_dm=is_dm, viewer_character_id=viewer_char_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to transfer this item")
 

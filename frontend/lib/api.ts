@@ -296,7 +296,7 @@ export const jointPaymentApi = {
 // --- Inventory API ---
 
 export const inventoryApi = {
-    list: (code: string, include_archived = true) =>
+    list: (code: string, include_archived = false) =>
         request<import("./types").InventoryItemResponse[]>(
             `/api/parties/${code}/inventory?include_archived=${include_archived}`
         ),

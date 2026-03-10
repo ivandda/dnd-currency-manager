@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 
 from app.core.events import event_manager
 from app.models.character import Character
-from app.models.inventory import InventoryEvent, InventoryItem
+from app.models.inventory import InventoryEvent, InventoryEventType, InventoryItem
 from app.models.party import Party
 from app.models.user import User
 
@@ -289,6 +289,30 @@ class TestInventoryUpdateTransferArchiveRestore:
         assert restore.status_code == 200
         assert restore.json()["is_active"] is True
 
+    def test_cannot_transfer_archived_item(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        second_character: Character,
+        test_party: Party,
+        test_character: Character,
+    ):
+        create = _create_item(client, test_party.code, auth_headers, name="Archived Relic")
+        item_id = create.json()["id"]
+
+        archive = client.post(
+            f"/api/parties/{test_party.code}/inventory/{item_id}/archive",
+            headers=auth_headers,
+        )
+        assert archive.status_code == 200
+
+        transfer = client.post(
+            f"/api/parties/{test_party.code}/inventory/{item_id}/transfer",
+            json={"owner_character_id": second_character.id},
+            headers=auth_headers,
+        )
+        assert transfer.status_code == 404
+
     def test_inventory_cap_of_100_active_items(
         self,
         client: TestClient,
@@ -433,7 +457,7 @@ class TestInventoryHistoryAndLifecycle:
         transfer_event = session.exec(
             select(InventoryEvent).where(
                 InventoryEvent.item_id == item_id,
-                InventoryEvent.event_type == "item_transferred",
+                InventoryEvent.event_type == InventoryEventType.ITEM_TRANSFERRED,
             )
         ).first()
         assert transfer_event is not None

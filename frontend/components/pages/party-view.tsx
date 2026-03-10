@@ -67,6 +67,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     const [jointPayments, setJointPayments] = useState<JointPaymentResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<TabId>("party");
+    const activeTabRef = useRef<TabId>("party");
     const swipeStartX = useRef<number | null>(null);
     const swipeStartY = useRef<number | null>(null);
 
@@ -83,20 +84,50 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
         "cp",
     ];
 
-    const loadAll = useCallback(async () => {
+    useEffect(() => {
+        activeTabRef.current = activeTab;
+    }, [activeTab]);
+
+    const loadAll = useCallback(async ({
+        core = true,
+        inventory = activeTabRef.current === "inventory",
+        history = activeTabRef.current === "history",
+    }: {
+        core?: boolean;
+        inventory?: boolean;
+        history?: boolean;
+    } = {}) => {
         try {
-            const [partyData, txData, jpData, itemData, itemHistoryData] = await Promise.all([
-                partyApi.getDetail(partyCode),
-                transactionApi.getHistory(partyCode, 1, 50),
-                jointPaymentApi.list(partyCode),
-                inventoryApi.list(partyCode, true),
-                inventoryApi.getHistory(partyCode, 300),
-            ]);
-            setParty(partyData);
-            setTransactions(txData.transactions);
-            setJointPayments(jpData);
-            setInventoryItems(itemData);
-            setInventoryHistory(itemHistoryData.events);
+            const requests: Promise<void>[] = [];
+
+            if (core) {
+                requests.push((async () => {
+                    const [partyData, txData, jpData] = await Promise.all([
+                        partyApi.getDetail(partyCode),
+                        transactionApi.getHistory(partyCode, 1, 50),
+                        jointPaymentApi.list(partyCode),
+                    ]);
+                    setParty(partyData);
+                    setTransactions(txData.transactions);
+                    setJointPayments(jpData);
+                })());
+            }
+
+            if (inventory) {
+                requests.push((async () => {
+                    const itemData = await inventoryApi.list(partyCode, true);
+                    setInventoryItems(itemData);
+                })());
+            }
+
+            if (history) {
+                requests.push((async () => {
+                    const itemHistoryData = await inventoryApi.getHistory(partyCode, 300);
+                    setInventoryHistory(itemHistoryData.events);
+                })());
+            }
+
+            await Promise.all(requests);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "Failed to load party";
             toast.error(message);
@@ -105,12 +136,35 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
         }
     }, [partyCode]);
 
-    useEffect(() => { loadAll(); }, [loadAll]);
+    useEffect(() => {
+        loadAll({ core: true, inventory: false, history: false });
+    }, [loadAll]);
+
+    useEffect(() => {
+        if (activeTab === "inventory") {
+            loadAll({ core: false, inventory: true, history: false });
+        } else if (activeTab === "history") {
+            loadAll({ core: false, inventory: false, history: true });
+        }
+    }, [activeTab, loadAll]);
 
     // SSE real-time updates
     usePartySSE(partyCode, (event) => {
-        if (["balance_update", "transaction_new", "joint_payment_update", "party_update", "inventory_update"].includes(event)) {
-            loadAll();
+        if (event === "inventory_update") {
+            if (activeTabRef.current === "inventory") {
+                loadAll({ core: false, inventory: true, history: false });
+            } else if (activeTabRef.current === "history") {
+                loadAll({ core: false, inventory: false, history: true });
+            }
+            return;
+        }
+
+        if (["balance_update", "transaction_new", "joint_payment_update", "party_update"].includes(event)) {
+            loadAll({
+                core: true,
+                inventory: false,
+                history: activeTabRef.current === "history",
+            });
         }
     });
 
