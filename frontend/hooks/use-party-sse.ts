@@ -44,6 +44,7 @@ export function usePartySSE(partyCode: string | null, onEvent: SSEHandler) {
             "transaction_new",
             "joint_payment_update",
             "party_update",
+            "inventory_update",
         ];
 
         for (const eventType of eventTypes) {

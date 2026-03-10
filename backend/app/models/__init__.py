@@ -9,3 +9,8 @@ from app.models.joint_payment import (  # noqa: F401
     PaymentParticipant,
 )
 from app.models.coin_preference import PartyCoinPreference  # noqa: F401
+from app.models.inventory import (  # noqa: F401
+    InventoryItem,
+    InventoryEvent,
+    InventoryEventType,
+)

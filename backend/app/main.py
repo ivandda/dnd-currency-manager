@@ -21,6 +21,7 @@ from app.api.parties import router as parties_router
 from app.api.transfers import router as transfers_router
 from app.api.transactions import router as transactions_router
 from app.api.joint_payments import router as joint_payments_router
+from app.api.inventory import router as inventory_router
 from app.api.sse import router as sse_router
 
 
@@ -58,6 +59,7 @@ app.include_router(parties_router)
 app.include_router(transfers_router)
 app.include_router(transactions_router)
 app.include_router(joint_payments_router)
+app.include_router(inventory_router)
 app.include_router(sse_router)
 
 
@@ -157,4 +159,3 @@ def get_lan_url(request: Request):
         }
 
     return {"lan_url": None, "ip": None, "source": source, "warnings": warnings}
-
