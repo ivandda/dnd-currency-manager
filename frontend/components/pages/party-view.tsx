@@ -91,11 +91,11 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     const loadAll = useCallback(async ({
         core = true,
         inventory = activeTabRef.current === "inventory",
-        history = activeTabRef.current === "history",
+        inventoryHistory = activeTabRef.current === "history",
     }: {
         core?: boolean;
         inventory?: boolean;
-        history?: boolean;
+        inventoryHistory?: boolean;
     } = {}) => {
         try {
             const requests: Promise<void>[] = [];
@@ -120,7 +120,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                 })());
             }
 
-            if (history) {
+            if (inventoryHistory) {
                 requests.push((async () => {
                     const itemHistoryData = await inventoryApi.getHistory(partyCode, 300);
                     setInventoryHistory(itemHistoryData.events);
@@ -137,14 +137,14 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     }, [partyCode]);
 
     useEffect(() => {
-        loadAll({ core: true, inventory: false, history: false });
+        loadAll({ core: true, inventory: false, inventoryHistory: false });
     }, [loadAll]);
 
     useEffect(() => {
         if (activeTab === "inventory") {
-            loadAll({ core: false, inventory: true, history: false });
+            loadAll({ core: false, inventory: true, inventoryHistory: false });
         } else if (activeTab === "history") {
-            loadAll({ core: false, inventory: false, history: true });
+            loadAll({ core: false, inventory: false, inventoryHistory: true });
         }
     }, [activeTab, loadAll]);
 
@@ -152,9 +152,9 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     usePartySSE(partyCode, (event) => {
         if (event === "inventory_update") {
             if (activeTabRef.current === "inventory") {
-                loadAll({ core: false, inventory: true, history: false });
+                loadAll({ core: false, inventory: true, inventoryHistory: false });
             } else if (activeTabRef.current === "history") {
-                loadAll({ core: false, inventory: false, history: true });
+                loadAll({ core: false, inventory: false, inventoryHistory: true });
             }
             return;
         }
@@ -163,7 +163,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
             loadAll({
                 core: true,
                 inventory: false,
-                history: activeTabRef.current === "history",
+                inventoryHistory: false,
             });
         }
     });
