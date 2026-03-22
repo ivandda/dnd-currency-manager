@@ -2,6 +2,7 @@
 
 import random
 import string
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
@@ -21,6 +22,7 @@ from app.core.events import event_manager
 from app.models.user import User
 from app.models.party import Party
 from app.models.character import Character
+from app.models.inventory import InventoryEvent, InventoryEventType, InventoryItem
 from app.schemas.party import (
     CharacterInParty,
     CharacterSettingsResponse,
@@ -36,6 +38,49 @@ from app.schemas.party import (
 from app.schemas.auth import MessageResponse
 
 router = APIRouter(prefix="/api/parties", tags=["parties"])
+
+
+def _reassign_character_items_to_stash(
+    *,
+    session: Session,
+    party_id: int,
+    character_id: int,
+    actor_user_id: int,
+    note: str,
+) -> bool:
+    """Move all items owned by a character to the unassigned stash."""
+    items = session.exec(
+        select(InventoryItem).where(
+            InventoryItem.party_id == party_id,
+            InventoryItem.owner_character_id == character_id,
+        )
+    ).all()
+    if not items:
+        return False
+
+    now = datetime.now(timezone.utc)
+    for item in items:
+        old_owner_id = item.owner_character_id
+        item.owner_character_id = None
+        item.updated_by_user_id = actor_user_id
+        item.updated_at = now
+        session.add(item)
+        session.add(
+            InventoryEvent(
+                party_id=party_id,
+                item_id=item.id,
+                event_type=InventoryEventType.ITEM_TRANSFERRED,
+                actor_user_id=actor_user_id,
+                item_name_snapshot=item.name,
+                owner_character_id=None,
+                old_owner_character_id=old_owner_id,
+                new_owner_character_id=None,
+                is_public_snapshot=item.is_public,
+                note=note,
+            )
+        )
+
+    return True
 
 
 def _generate_party_code(session: Session, length: int = 4) -> str:
@@ -266,11 +311,21 @@ async def leave_party(
             detail="You don't have an active character in this party",
         )
 
+    moved_items = _reassign_character_items_to_stash(
+        session=session,
+        party_id=party.id,
+        character_id=character.id,
+        actor_user_id=current_user.id,
+        note="Owner left party",
+    )
+
     character.is_active = False
     session.add(character)
     session.commit()
 
     await event_manager.broadcast(party.id, "party_update", {"party_id": party.id})
+    if moved_items:
+        await event_manager.broadcast(party.id, "inventory_update", {"party_id": party.id})
 
     return MessageResponse(message=f"{character.name} has left the party")
 
@@ -297,11 +352,21 @@ async def kick_character(
             detail="Character is already inactive",
         )
 
+    moved_items = _reassign_character_items_to_stash(
+        session=session,
+        party_id=party.id,
+        character_id=character.id,
+        actor_user_id=dm_user.id,
+        note="Owner was removed from party",
+    )
+
     character.is_active = False
     session.add(character)
     session.commit()
 
     await event_manager.broadcast(party.id, "party_update", {"party_id": party.id})
+    if moved_items:
+        await event_manager.broadcast(party.id, "inventory_update", {"party_id": party.id})
 
     return MessageResponse(message=f"{character.name} has been kicked from the party")
 

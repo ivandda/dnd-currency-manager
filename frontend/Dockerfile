@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 3000
 
 # Run dev server
-CMD ["pnpm", "dev", "--hostname", "0.0.0.0"]
+CMD ["sh", "./dev-entrypoint.sh"]
