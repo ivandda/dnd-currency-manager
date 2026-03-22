@@ -84,6 +84,38 @@ export function CoinDisplay({
     className = "",
 }: CoinDisplayProps) {
     const [convertTarget, setConvertTarget] = useState<CoinType | null>(null);
+    const coinOrder: CoinType[] = enabledCoins && enabledCoins.length > 0
+        ? enabledCoins
+        : (["pp", "gp", "ep", "sp", "cp"] satisfies CoinType[]);
+    const zeroDisplayCoins: CoinType[] = convertTarget ? [convertTarget] : coinOrder;
+
+    function handleCoinClick(coin: CoinType) {
+        if (!interactive) return;
+        // Toggle: click same coin again to reset to normal view
+        setConvertTarget((prev) => (prev === coin ? null : coin));
+    }
+
+    function renderCoin(coin: CoinType, amount: number) {
+        return (
+            <span
+                key={coin}
+                className={`inline-flex items-center gap-0.5 font-semibold ${COIN_COLORS[coin]} ${interactive ? "cursor-pointer hover:opacity-80 transition-opacity" : ""} ${convertTarget === coin ? "underline underline-offset-2" : ""}`}
+                onClick={() => handleCoinClick(coin)}
+                onKeyDown={(e) => {
+                    if (interactive && (e.key === "Enter" || e.key === " ")) {
+                        e.preventDefault();
+                        handleCoinClick(coin);
+                    }
+                }}
+                role={interactive ? "button" : undefined}
+                tabIndex={interactive ? 0 : undefined}
+            >
+                <span className="text-xs">{COIN_ICONS[coin]}</span>
+                {animated ? <AnimatedNumber value={amount} /> : amount}
+                <span className="text-xs opacity-70 uppercase">{coin}</span>
+            </span>
+        );
+    }
 
     // Determine which coins to show
     let displayCoins = coins;
@@ -96,41 +128,16 @@ export function CoinDisplay({
     ) as [CoinType, number][];
 
     if (entries.length === 0) {
-        return <span className="text-muted-foreground">0 CP</span>;
+        return (
+            <span className={`inline-flex items-center flex-wrap ${SIZE_CLASSES[size]} ${className}`}>
+                {zeroDisplayCoins.map((coin) => renderCoin(coin, 0))}
+            </span>
+        );
     }
-
-    const handleCoinClick = (coin: CoinType) => {
-        if (!interactive) return;
-        // Toggle: click same coin again to reset to normal view
-        setConvertTarget((prev) => (prev === coin ? null : coin));
-    };
 
     return (
         <span className={`inline-flex items-center flex-wrap ${SIZE_CLASSES[size]} ${className}`}>
-            {entries.map(([coin, amount]) => (
-                <span
-                    key={coin}
-                    className={`inline-flex items-center gap-0.5 font-semibold ${COIN_COLORS[coin]} ${interactive ? "cursor-pointer hover:opacity-80 transition-opacity" : ""
-                        } ${convertTarget === coin ? "underline underline-offset-2" : ""}`}
-                    onClick={() => handleCoinClick(coin)}
-                    onKeyDown={(e) => {
-                        if (interactive && (e.key === "Enter" || e.key === " ")) {
-                            e.preventDefault();
-                            handleCoinClick(coin);
-                        }
-                    }}
-                    role={interactive ? "button" : undefined}
-                    tabIndex={interactive ? 0 : undefined}
-                >
-                    <span className="text-xs">{COIN_ICONS[coin]}</span>
-                    {animated ? (
-                        <AnimatedNumber value={amount} />
-                    ) : (
-                        amount
-                    )}
-                    <span className="text-xs opacity-70 uppercase">{coin}</span>
-                </span>
-            ))}
+            {entries.map(([coin, amount]) => renderCoin(coin, amount))}
         </span>
     );
 }

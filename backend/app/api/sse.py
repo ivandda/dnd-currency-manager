@@ -61,6 +61,7 @@ async def sse_stream(
     - joint_payment_update: A joint payment status changed
     - party_update: Party settings changed
     - inventory_update: Inventory items changed
+    - heroic_inspiration_update: A character's Heroic Inspiration changed
     """
     print(f"[SSE] User {current_user.username} connecting to party {party.code} (id={party.id})", flush=True)
     queue = event_manager.subscribe(party.id)

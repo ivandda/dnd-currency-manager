@@ -33,6 +33,7 @@ export interface CharacterInParty {
     balance_display: Record<string, number>;
     balance_visible_to_viewer: boolean;
     is_balance_public: boolean;
+    has_heroic_inspiration: boolean;
     is_active: boolean;
     user_id: number;
     username: string;
@@ -138,6 +139,14 @@ export interface JointPaymentResponse {
     status: "pending" | "approved" | "rejected" | "cancelled";
     created_at: string;
     participants: ParticipantResponse[];
+}
+
+export interface HeroicInspirationUpdate {
+    character_id: number;
+    has_heroic_inspiration: boolean;
+    action: "granted" | "revoked" | "used";
+    target_user_id: number;
+    actor_user_id: number;
 }
 
 export type CoinType = "pp" | "gp" | "ep" | "sp" | "cp";

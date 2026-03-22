@@ -23,10 +23,9 @@ RUN uv sync --frozen --no-dev
 # Copy application code
 COPY . .
 
-# Startup script placed OUTSIDE /app so volume mount can't overwrite it
-RUN printf '#!/bin/sh\nset -e\ncd /app\nuv sync --frozen --no-dev\nexec /app/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload\n' > /start.sh \
-    && chmod +x /start.sh
+RUN cp /app/docker-entrypoint.sh /usr/local/bin/app-entrypoint \
+    && chmod +x /usr/local/bin/app-entrypoint
 
 EXPOSE 8000
 
-CMD ["/start.sh"]
+CMD ["/usr/local/bin/app-entrypoint"]

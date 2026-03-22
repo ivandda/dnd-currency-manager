@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
-import { partyApi, transferApi, transactionApi, jointPaymentApi, inventoryApi } from "@/lib/api";
+import { partyApi, transferApi, transactionApi, jointPaymentApi, inventoryApi, heroicInspirationApi } from "@/lib/api";
 import type {
     PartyDetail,
     CharacterInParty,
@@ -12,6 +12,7 @@ import type {
     CoinType,
     InventoryItemResponse,
     InventoryHistoryEntryResponse,
+    HeroicInspirationUpdate,
 } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ import { usePartySSE } from "@/hooks/use-party-sse";
 import { toast } from "sonner";
 import {
     Castle, CircleDollarSign, Handshake, Scroll, Shield, Check, Crown, ArrowLeft,
-    Zap, Gem, ArrowUpRight, Store, PlusCircle, Copy, Archive, Settings, Plus, Minus, X, Sun, Moon, Package, ChevronDown, ChevronUp
+    Zap, Gem, ArrowUpRight, Store, PlusCircle, Copy, Archive, Settings, Plus, Minus, X, Sun, Moon, Package, ChevronDown, ChevronUp, Sparkles
 } from "lucide-react";
 
 interface PartyViewProps {
@@ -58,6 +59,18 @@ const TAB_LABELS: Record<TabId, { text: string; icon: React.ElementType }> = {
     history: { text: "History", icon: Scroll },
 };
 
+function isHeroicInspirationUpdate(data: unknown): data is HeroicInspirationUpdate {
+    if (!data || typeof data !== "object") return false;
+    const candidate = data as Partial<HeroicInspirationUpdate>;
+    return (
+        typeof candidate.character_id === "number" &&
+        typeof candidate.has_heroic_inspiration === "boolean" &&
+        typeof candidate.action === "string" &&
+        typeof candidate.target_user_id === "number" &&
+        typeof candidate.actor_user_id === "number"
+    );
+}
+
 export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     const { user } = useAuth();
     const { theme, toggleTheme } = useTheme();
@@ -69,9 +82,16 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     const [jointPayments, setJointPayments] = useState<JointPaymentResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<TabId>("treasury");
+    const [heroicPendingKey, setHeroicPendingKey] = useState<string | null>(null);
+    const [heroicPulseCharacterId, setHeroicPulseCharacterId] = useState<number | null>(null);
+    const [heroicCelebration, setHeroicCelebration] = useState<{ characterName: string } | null>(null);
     const activeTabRef = useRef<TabId>("treasury");
     const swipeStartX = useRef<number | null>(null);
     const swipeStartY = useRef<number | null>(null);
+    const partyRef = useRef<PartyDetail | null>(null);
+    const isDMRef = useRef(false);
+    const heroicPulseTimeoutRef = useRef<number | null>(null);
+    const heroicCelebrationTimeoutRef = useRef<number | null>(null);
 
     const isDM = party?.dm_id === user?.id;
     const myCharacter = party?.characters.find(
@@ -89,6 +109,22 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     useEffect(() => {
         activeTabRef.current = activeTab;
     }, [activeTab]);
+
+    useEffect(() => {
+        partyRef.current = party;
+        isDMRef.current = Boolean(party?.dm_id === user?.id);
+    }, [party, user?.id]);
+
+    useEffect(() => {
+        return () => {
+            if (heroicPulseTimeoutRef.current) {
+                window.clearTimeout(heroicPulseTimeoutRef.current);
+            }
+            if (heroicCelebrationTimeoutRef.current) {
+                window.clearTimeout(heroicCelebrationTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const loadAll = useCallback(async ({
         core = true,
@@ -151,7 +187,52 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     }, [activeTab, loadAll]);
 
     // SSE real-time updates
-    usePartySSE(partyCode, (event) => {
+    usePartySSE(partyCode, (event, data) => {
+        if (event === "heroic_inspiration_update" && isHeroicInspirationUpdate(data)) {
+            const targetName = partyRef.current?.characters.find((char) => char.id === data.character_id)?.name ?? "Character";
+
+            setParty((current) => current ? {
+                ...current,
+                characters: current.characters.map((char) =>
+                    char.id === data.character_id
+                        ? { ...char, has_heroic_inspiration: data.has_heroic_inspiration }
+                        : char
+                ),
+            } : current);
+
+            if (heroicPulseTimeoutRef.current) {
+                window.clearTimeout(heroicPulseTimeoutRef.current);
+            }
+            setHeroicPulseCharacterId(data.character_id);
+            heroicPulseTimeoutRef.current = window.setTimeout(() => {
+                setHeroicPulseCharacterId((current) => current === data.character_id ? null : current);
+            }, 1500);
+
+            if (data.action === "granted") {
+                if (data.target_user_id === user?.id) {
+                    if (heroicCelebrationTimeoutRef.current) {
+                        window.clearTimeout(heroicCelebrationTimeoutRef.current);
+                    }
+                    setHeroicCelebration({ characterName: targetName });
+                    heroicCelebrationTimeoutRef.current = window.setTimeout(() => {
+                        setHeroicCelebration(null);
+                    }, 1400);
+                } else if (isDMRef.current && data.actor_user_id === user?.id) {
+                    toast.success(`Heroic Inspiration granted to ${targetName}`);
+                }
+            } else if (data.action === "revoked") {
+                if (data.target_user_id === user?.id) {
+                    toast("Heroic Inspiration removed");
+                } else if (isDMRef.current && data.actor_user_id === user?.id) {
+                    toast.success(`Heroic Inspiration removed from ${targetName}`);
+                }
+            } else if (data.action === "used" && data.target_user_id === user?.id) {
+                toast.success("Heroic Inspiration used");
+            }
+
+            return;
+        }
+
         if (event === "inventory_update") {
             if (activeTabRef.current === "inventory") {
                 loadAll({ core: false, inventory: true, inventoryHistory: false });
@@ -169,6 +250,35 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
             });
         }
     });
+
+    const runHeroicAction = useCallback(async (pendingKey: string, action: () => Promise<void>) => {
+        setHeroicPendingKey(pendingKey);
+        try {
+            await action();
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Failed");
+        } finally {
+            setHeroicPendingKey((current) => current === pendingKey ? null : current);
+        }
+    }, []);
+
+    const handleGrantHeroic = useCallback((character: CharacterInParty) => (
+        runHeroicAction(`grant-${character.id}`, async () => {
+            await heroicInspirationApi.grant(partyCode, character.id);
+        })
+    ), [partyCode, runHeroicAction]);
+
+    const handleRevokeHeroic = useCallback((character: CharacterInParty) => (
+        runHeroicAction(`revoke-${character.id}`, async () => {
+            await heroicInspirationApi.revoke(partyCode, character.id);
+        })
+    ), [partyCode, runHeroicAction]);
+
+    const handleUseMyHeroic = useCallback(() => (
+        runHeroicAction("use-self", async () => {
+            await heroicInspirationApi.use(partyCode);
+        })
+    ), [partyCode, runHeroicAction]);
 
     const pendingCount = jointPayments.filter((p) => p.status === "pending").length;
 
@@ -325,6 +435,11 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                                         enabledCoins={enabledCoins}
                                         onRefresh={loadAll}
                                         onBack={onBack}
+                                        heroicPendingKey={heroicPendingKey}
+                                        heroicPulseCharacterId={heroicPulseCharacterId}
+                                        onGrantHeroic={handleGrantHeroic}
+                                        onRevokeHeroic={handleRevokeHeroic}
+                                        onUseHeroic={handleUseMyHeroic}
                                     />
                                 )}
                                 {activeTab === "treasury" && (
@@ -367,16 +482,51 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                 </main>
             </div>
 
+            {heroicCelebration && (
+                <div className="pointer-events-none absolute inset-x-0 top-16 z-[70] flex justify-center px-4">
+                    <div className="animate-heroic-burst rounded-2xl border border-gold/35 bg-card/90 px-5 py-3 shadow-2xl backdrop-blur-md">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-warning-soft text-gold shadow-[0_0_24px_rgba(245,197,66,0.25)]">
+                                <Sparkles className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-gold glow-gold">Heroic Inspiration</p>
+                                <p className="text-xs text-foreground/80">{heroicCelebration.characterName} is ready to reroll fate.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Identity / Balance Footer */}
             <footer className="md:hidden bg-secondary/10 border-t border-border/20 shrink-0 z-50">
                 <div className={`${PAGE_SHELL} py-3 flex items-center justify-between`}>
                     {myCharacter ? (
                         <>
-                            <div className="flex items-center gap-3 min-w-0">
-                                <span className="text-sm font-semibold text-foreground truncate">{myCharacter.name}</span>
-                                <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4.5 bg-background/50 flex shrink-0">
-                                    {myCharacter.character_class}
-                                </Badge>
+                            <div className="flex min-w-0 flex-col gap-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span className={`text-sm font-semibold truncate ${myCharacter.has_heroic_inspiration ? "text-gold glow-gold" : "text-foreground"}`}>{myCharacter.name}</span>
+                                    <Badge variant="outline" className="text-[10px] border-border/30 px-1.5 py-0 h-4.5 bg-background/50 flex shrink-0">
+                                        {myCharacter.character_class}
+                                    </Badge>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {myCharacter.has_heroic_inspiration && (
+                                        <>
+                                            <Badge className="h-5 border-none bg-warning-soft px-2 text-[10px] font-semibold text-gold shadow-none">
+                                                <Sparkles className="mr-1 h-3 w-3" /> Heroic
+                                            </Badge>
+                                            <button
+                                                type="button"
+                                                onClick={handleUseMyHeroic}
+                                                disabled={heroicPendingKey === "use-self"}
+                                                className="rounded-md border border-warning/30 px-2 py-1 text-[10px] font-semibold text-gold transition-colors hover:bg-warning-soft disabled:opacity-60"
+                                            >
+                                                {heroicPendingKey === "use-self" ? "Using..." : "Use Heroic"}
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex shrink-0 ml-2">
                                 <CoinDisplay
@@ -473,9 +623,15 @@ function EmptyState({ icon, message }: { icon: "shield" | "scroll" | "handshake"
 
 function PartyTab({
     party, isDM, myCharacter, partyCode, enabledCoins, onRefresh, onBack,
+    heroicPendingKey, heroicPulseCharacterId, onGrantHeroic, onRevokeHeroic, onUseHeroic,
 }: {
     party: PartyDetail; isDM: boolean; myCharacter: CharacterInParty | undefined;
     partyCode: string; enabledCoins: CoinType[]; onRefresh: () => void; onBack: () => void;
+    heroicPendingKey: string | null;
+    heroicPulseCharacterId: number | null;
+    onGrantHeroic: (character: CharacterInParty) => Promise<void>;
+    onRevokeHeroic: (character: CharacterInParty) => Promise<void>;
+    onUseHeroic: () => Promise<void>;
 }) {
     const [kickTarget, setKickTarget] = useState<CharacterInParty | null>(null);
     const [kicking, setKicking] = useState(false);
@@ -515,14 +671,19 @@ function PartyTab({
                 {sortedMembers.map((char) => (
                     <div
                         key={char.id}
-                        className={`flex items-center justify-between py-2.5 px-3 rounded-lg border ${char.id === myCharacter?.id
+                        className={`flex items-center justify-between py-2.5 px-3 rounded-lg border transition-all ${char.id === myCharacter?.id
                             ? "bg-primary/15 border-primary/50 shadow-sm"
                             : "bg-card/75 border-border/60"
-                            }`}
+                            } ${char.has_heroic_inspiration ? "heroic-row" : ""} ${heroicPulseCharacterId === char.id ? "animate-heroic-pulse" : ""}`}
                     >
                         <div className="min-w-0">
                             <p className="font-medium text-sm truncate flex items-center gap-2">
-                                {char.name}
+                                <span className={char.has_heroic_inspiration ? "text-gold glow-gold" : ""}>{char.name}</span>
+                                {char.has_heroic_inspiration && (
+                                    <Badge className="h-5 border-none bg-warning-soft px-2 text-[10px] font-semibold text-gold shadow-none">
+                                        <Sparkles className="mr-1 h-3 w-3" /> Heroic
+                                    </Badge>
+                                )}
                                 {char.id === myCharacter?.id && (
                                     <Badge variant="default" className="text-[10px] h-4 px-1.5 py-0 bg-primary/20 text-primary hover:bg-primary/30 border-none shadow-none font-bold">
                                         You
@@ -546,14 +707,40 @@ function PartyTab({
                                     Hidden
                                 </span>
                             )}
-                            {isDM && char.id !== myCharacter?.id && (
-                                <button
-                                    onClick={() => setKickTarget(char)}
-                                    className="text-[10px] text-destructive hover:underline ml-1"
-                                >
-                                    Kick
-                                </button>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                                {isDM && (
+                                    <button
+                                        type="button"
+                                        onClick={() => char.has_heroic_inspiration ? onRevokeHeroic(char) : onGrantHeroic(char)}
+                                        disabled={heroicPendingKey === `grant-${char.id}` || heroicPendingKey === `revoke-${char.id}`}
+                                        className="rounded-md border border-warning/30 px-2 py-1 text-[10px] font-semibold text-gold transition-colors hover:bg-warning-soft disabled:opacity-60"
+                                    >
+                                        {heroicPendingKey === `grant-${char.id}` || heroicPendingKey === `revoke-${char.id}`
+                                            ? "Saving..."
+                                            : char.has_heroic_inspiration
+                                                ? "Take Heroic"
+                                                : "Grant Heroic"}
+                                    </button>
+                                )}
+                                {!isDM && char.id === myCharacter?.id && char.has_heroic_inspiration && (
+                                    <button
+                                        type="button"
+                                        onClick={onUseHeroic}
+                                        disabled={heroicPendingKey === "use-self"}
+                                        className="rounded-md border border-warning/30 px-2 py-1 text-[10px] font-semibold text-gold transition-colors hover:bg-warning-soft disabled:opacity-60"
+                                    >
+                                        {heroicPendingKey === "use-self" ? "Using..." : "Use Heroic"}
+                                    </button>
+                                )}
+                                {isDM && char.id !== myCharacter?.id && (
+                                    <button
+                                        onClick={() => setKickTarget(char)}
+                                        className="text-[10px] text-destructive hover:underline ml-1"
+                                    >
+                                        Kick
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 ))}

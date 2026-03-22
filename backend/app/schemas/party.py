@@ -54,6 +54,7 @@ class CharacterInParty(BaseModel):
     balance_display: dict[str, int] = {}
     balance_visible_to_viewer: bool = True
     is_balance_public: bool = True
+    has_heroic_inspiration: bool = False
     is_active: bool
     user_id: int
     username: str

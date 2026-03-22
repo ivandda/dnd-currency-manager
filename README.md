@@ -51,6 +51,8 @@ This auto-detects your LAN IP and starts 3 services:
 
 > You can also run `docker compose up -d --build` directly, but the share banner won't show your LAN IP.
 
+The backend container applies Alembic migrations automatically before it starts serving requests.
+
 Services:
 
 | Service      | URL                          | Description            |
@@ -137,11 +139,19 @@ uv run pytest tests/ -v
 
 ### Database Migrations (Alembic)
 
-Since the database runs inside Docker, all Alembic commands must run **inside the backend container** using `docker compose exec`.
+The backend container runs `alembic upgrade head` automatically on startup. For manual migration commands, run Alembic **inside the backend container** using `docker compose exec`.
 
 > **Why?** The `DATABASE_URL` uses `db` as the hostname — that's the Docker Compose service name, which only resolves inside the Docker network. Running `alembic` locally will fail with a "could not translate host name" error.
 
-#### Apply pending migrations
+#### Startup behavior
+
+```bash
+docker compose up -d --build
+```
+
+This is enough for normal Docker usage. The backend will wait for Postgres and apply pending migrations before starting Uvicorn.
+
+#### Apply pending migrations manually
 
 ```bash
 docker compose exec backend /app/.venv/bin/alembic upgrade head
@@ -171,6 +181,18 @@ docker compose exec backend /app/.venv/bin/alembic upgrade head
 docker compose exec backend /app/.venv/bin/alembic downgrade -1
 ```
 
+#### Repair an older database with migration drift
+
+If you used an older version of the app that created tables at startup instead of through Alembic, you can see errors like `DuplicateTable` during `alembic upgrade head`. In that case, stamp the last already-present revision and then upgrade again.
+
+Example for a database that already has the inventory tables:
+
+```bash
+docker compose exec backend /app/.venv/bin/alembic stamp d4e5f6a7b8c9
+docker compose exec backend /app/.venv/bin/alembic upgrade head
+```
+
+Only use `stamp` when you know the schema already matches that revision.
 
 ### Run backend locally (without Docker)
 
@@ -179,7 +201,14 @@ cd backend
 # Make sure PostgreSQL is running on localhost:5432
 # Update DATABASE_URL in .env to point to localhost instead of 'db'
 uv sync
+uv run alembic upgrade head
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+When running locally from the host, use a host-resolvable database URL such as:
+
+```env
+DATABASE_URL=postgresql://dnd_user:dnd_password@localhost:5432/dnd_currency
 ```
 
 ### Run frontend locally (without Docker)
