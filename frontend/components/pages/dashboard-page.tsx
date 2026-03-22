@@ -16,6 +16,8 @@ import { Swords, Castle, Radio, Check } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import PartyView from "./party-view";
 
+const PAGE_SHELL = "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 xl:px-10";
+
 export default function DashboardPage() {
     const { user, logout } = useAuth();
     const [parties, setParties] = useState<Party[]>([]);
@@ -115,7 +117,7 @@ export default function DashboardPage() {
         <div className="min-h-screen">
             {/* Header */}
             <header className="border-b border-border/40 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-                <div className="w-full px-8 md:px-12 lg:px-16 py-4 flex items-center justify-between">
+                <div className={`${PAGE_SHELL} py-4 flex items-center justify-between`}>
                     <div className="flex items-center gap-3">
                         <Swords className="text-dnd-red w-6 h-6" />
                         <h1 className="text-xl font-bold text-dnd-red glow-red">D&D Currency</h1>
@@ -137,114 +139,117 @@ export default function DashboardPage() {
                 </div>
             </header>
 
-            <main className="w-full px-8 md:px-12 lg:px-16 py-8 md:py-12 animate-fade-in">
-                <div className="flex flex-col md:flex-row gap-8 lg:gap-12">
-
-                    {/* Left Column: Actions & Info */}
-                    <div className="w-full md:w-80 lg:w-96 shrink-0 flex flex-col gap-6">
-                        {/* LAN Share URL */}
+            <main className="animate-fade-in py-8 md:py-10">
+                <div className={`${PAGE_SHELL} space-y-8`}>
+                    <section className="space-y-4">
                         <ShareUrlBanner />
+                        <Card className="card-medieval border-border/30 shadow-none">
+                            <CardContent className="py-5">
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                    <div>
+                                        <h2 className="text-lg font-bold text-dnd-red flex items-center gap-2">
+                                            <Swords className="w-4 h-4" /> Quick Actions
+                                        </h2>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            Start a new party or jump into an existing one with an invite code.
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col gap-3 sm:flex-row lg:w-auto">
+                                        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button className="bg-primary text-primary-foreground hover:bg-primary/90 h-12 min-w-44 text-base font-bold flex items-center justify-center gap-2">
+                                                    <Swords className="w-5 h-5" /> Create Party
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="card-medieval border-border/40 sm:max-w-md">
+                                                <DialogHeader>
+                                                    <DialogTitle className="text-gold text-xl">Forge a New Party</DialogTitle>
+                                                </DialogHeader>
+                                                <form onSubmit={handleCreateParty} className="space-y-4">
+                                                    <div className="space-y-2">
+                                                        <Label>Party Name</Label>
+                                                        <Input
+                                                            placeholder="The Dragon Slayers"
+                                                            value={createName}
+                                                            onChange={(e) => setCreateName(e.target.value)}
+                                                            className="bg-secondary/30"
+                                                            autoCapitalize="none"
+                                                            autoCorrect="off"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Players and DM can configure their own coin visibility from inside each party.
+                                                    </p>
+                                                    <Button type="submit" className="w-full bg-primary text-primary-foreground font-bold h-12">
+                                                        Create Party
+                                                    </Button>
+                                                </form>
+                                            </DialogContent>
+                                        </Dialog>
 
-                        {/* Actions */}
-                        <div>
-                            <h2 className="text-lg font-bold text-dnd-red mb-3 flex items-center gap-2">
-                                <Swords className="w-4 h-4" /> Quick Actions
-                            </h2>
-                            <div className="flex flex-col sm:flex-row md:flex-col gap-3">
-                                <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                                    <DialogTrigger asChild>
-                                        <Button className="flex-1 md:w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-base font-bold flex items-center justify-center gap-2">
-                                            <Swords className="w-5 h-5" /> Create Party
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="card-medieval border-border/40 sm:max-w-md">
-                                        <DialogHeader>
-                                            <DialogTitle className="text-gold text-xl">Forge a New Party</DialogTitle>
-                                        </DialogHeader>
-                                        <form onSubmit={handleCreateParty} className="space-y-4">
-                                            <div className="space-y-2">
-                                                <Label>Party Name</Label>
-                                                <Input
-                                                    placeholder="The Dragon Slayers"
-                                                    value={createName}
-                                                    onChange={(e) => setCreateName(e.target.value)}
-                                                    className="bg-secondary/30"
-                                                    autoCapitalize="none"
-                                                    autoCorrect="off"
-                                                    required
-                                                />
-                                            </div>
-                                            <p className="text-xs text-muted-foreground">
-                                                Players and DM can configure their own coin visibility from inside each party.
-                                            </p>
-                                            <Button type="submit" className="w-full bg-primary text-primary-foreground font-bold h-12">
-                                                Create Party
-                                            </Button>
-                                        </form>
-                                    </DialogContent>
-                                </Dialog>
+                                        <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="h-12 min-w-44 text-base font-bold flex items-center justify-center gap-2 border-border/60 hover:border-gold/50 hover:text-gold transition-colors shadow-sm">
+                                                    <Castle className="w-5 h-5" /> Join Party
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="card-medieval border-border/40 sm:max-w-md">
+                                                <DialogHeader>
+                                                    <DialogTitle className="text-gold text-xl">Join an Adventure</DialogTitle>
+                                                </DialogHeader>
+                                                <form onSubmit={handleJoinParty} className="space-y-4">
+                                                    <div className="space-y-2">
+                                                        <Label>Party Code</Label>
+                                                        <Input
+                                                            placeholder="A4F2"
+                                                            value={joinCode}
+                                                            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                                                            className="bg-secondary/30 text-center text-2xl tracking-[0.3em] font-mono uppercase"
+                                                            maxLength={4}
+                                                            autoCapitalize="none"
+                                                            autoCorrect="off"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <Separator className="bg-border/30" />
+                                                    <div className="space-y-2">
+                                                        <Label>Character Name</Label>
+                                                        <Input
+                                                            placeholder="Gandalf the Grey"
+                                                            value={charName}
+                                                            onChange={(e) => setCharName(e.target.value)}
+                                                            className="bg-secondary/30"
+                                                            autoCapitalize="none"
+                                                            autoCorrect="off"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label>Character Class</Label>
+                                                        <Input
+                                                            placeholder="Wizard"
+                                                            value={charClass}
+                                                            onChange={(e) => setCharClass(e.target.value)}
+                                                            className="bg-secondary/30"
+                                                            autoCapitalize="none"
+                                                            autoCorrect="off"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <Button type="submit" className="w-full bg-primary text-primary-foreground font-bold h-12">
+                                                        Join Party
+                                                    </Button>
+                                                </form>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </section>
 
-                                <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
-                                    <DialogTrigger asChild>
-                                        <Button variant="outline" className="flex-1 md:w-full h-12 text-base font-bold flex items-center justify-center gap-2 border-border/60 hover:border-gold/50 hover:text-gold transition-colors shadow-sm">
-                                            <Castle className="w-5 h-5" /> Join Party
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="card-medieval border-border/40 sm:max-w-md">
-                                        <DialogHeader>
-                                            <DialogTitle className="text-gold text-xl">Join an Adventure</DialogTitle>
-                                        </DialogHeader>
-                                        <form onSubmit={handleJoinParty} className="space-y-4">
-                                            <div className="space-y-2">
-                                                <Label>Party Code</Label>
-                                                <Input
-                                                    placeholder="A4F2"
-                                                    value={joinCode}
-                                                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                                                    className="bg-secondary/30 text-center text-2xl tracking-[0.3em] font-mono uppercase"
-                                                    maxLength={4}
-                                                    autoCapitalize="none"
-                                                    autoCorrect="off"
-                                                    required
-                                                />
-                                            </div>
-                                            <Separator className="bg-border/30" />
-                                            <div className="space-y-2">
-                                                <Label>Character Name</Label>
-                                                <Input
-                                                    placeholder="Gandalf the Grey"
-                                                    value={charName}
-                                                    onChange={(e) => setCharName(e.target.value)}
-                                                    className="bg-secondary/30"
-                                                    autoCapitalize="none"
-                                                    autoCorrect="off"
-                                                    required
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>Character Class</Label>
-                                                <Input
-                                                    placeholder="Wizard"
-                                                    value={charClass}
-                                                    onChange={(e) => setCharClass(e.target.value)}
-                                                    className="bg-secondary/30"
-                                                    autoCapitalize="none"
-                                                    autoCorrect="off"
-                                                    required
-                                                />
-                                            </div>
-                                            <Button type="submit" className="w-full bg-primary text-primary-foreground font-bold h-12">
-                                                Join Party
-                                            </Button>
-                                        </form>
-                                    </DialogContent>
-                                </Dialog>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Right Column: Party List */}
-                    <div className="flex-1 min-w-0">
+                    <section className="min-w-0">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-2xl font-bold text-dnd-red flex items-center gap-2">
                                 <Castle className="w-6 h-6" /> Your Parties
@@ -314,7 +319,7 @@ export default function DashboardPage() {
                                 ))}
                             </div>
                         )}
-                    </div>
+                    </section>
                 </div>
             </main>
         </div>
@@ -381,7 +386,7 @@ function ShareUrlBanner() {
     const isLocalhost = lanUrl.includes("localhost") || lanUrl.includes("127.0.0.1");
 
     return (
-        <div className="mb-6 rounded-lg bg-secondary/20 border border-border/30 px-4 py-3 shadow-sm">
+        <div className="rounded-lg bg-secondary/20 border border-border/30 px-4 py-3 shadow-sm">
             <div className="flex items-center gap-3">
                 <Radio className="w-4 h-4 text-muted-foreground shrink-0" />
                 <span className="text-sm font-semibold text-muted-foreground shrink-0 hidden sm:inline">Share URL:</span>
