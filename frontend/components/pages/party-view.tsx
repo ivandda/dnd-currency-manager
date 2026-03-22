@@ -35,6 +35,8 @@ interface PartyViewProps {
     onBack: () => void;
 }
 
+const PAGE_SHELL = "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 xl:px-10";
+
 /** Simple hook for window width reactivity */
 function useWindowWidth() {
     const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1024);
@@ -66,8 +68,8 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
     const [inventoryHistory, setInventoryHistory] = useState<InventoryHistoryEntryResponse[]>([]);
     const [jointPayments, setJointPayments] = useState<JointPaymentResponse[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<TabId>("party");
-    const activeTabRef = useRef<TabId>("party");
+    const [activeTab, setActiveTab] = useState<TabId>("treasury");
+    const activeTabRef = useRef<TabId>("treasury");
     const swipeStartX = useRef<number | null>(null);
     const swipeStartY = useRef<number | null>(null);
 
@@ -216,7 +218,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
         <div className="h-[100dvh] flex flex-col bg-background text-foreground overflow-hidden overscroll-none">
             {/* Header */}
             <header className="border-b border-border/40 bg-card/80 backdrop-blur-sm shrink-0 z-50 flex flex-col">
-                <div className="w-full px-6 md:px-10 lg:px-16 py-2.5 flex items-center justify-between gap-4">
+                <div className={`${PAGE_SHELL} py-2.5 flex items-center justify-between gap-4`}>
                     <div className="flex items-center min-w-0 shrink">
                         <button onClick={onBack} className="text-muted-foreground hover:text-foreground text-sm shrink-0 flex items-center gap-1">
                             <ArrowLeft className="w-4 h-4" /> Back
@@ -243,14 +245,42 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
 
             {/* Desktop / Mobile Dual Layout */}
             <div
-                className="flex-1 min-h-0 flex flex-col md:flex-row w-full overflow-hidden relative"
+                className="flex-1 min-h-0 flex flex-col w-full overflow-hidden relative"
                 onTouchStart={handleSwipeStart}
                 onTouchEnd={handleSwipeEnd}
             >
 
                 {/* --- MOBILE TAB BAR (Hidden on md+) --- */}
                 <div className="md:hidden border-b border-border/30 bg-card/30 shrink-0 z-30">
-                    <div className="w-full px-2 flex">
+                    <div className={PAGE_SHELL}>
+                        <div className="flex px-1">
+                            {TABS.map((tab) => {
+                                const Icon = TAB_LABELS[tab].icon;
+                                const isSelected = activeTab === tab;
+                                return (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        className={`flex-1 py-3 flex flex-col items-center gap-0.5 transition-all relative ${isSelected ? "text-dnd-red" : "text-muted-foreground"}`}
+                                    >
+                                        <Icon className="w-5 h-5" />
+                                        <span className="text-[10px] font-medium uppercase tracking-tighter">{TAB_LABELS[tab].text}</span>
+                                        {isSelected && <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-dnd-red rounded-t-full" />}
+                                        {tab === "splits" && pendingCount > 0 && (
+                                            <span className="absolute top-1 right-1/4 bg-dnd-red text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center border-2 border-background">
+                                                {pendingCount}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Desktop Tab Bar */}
+                <div className="hidden md:block border-b border-border/30 bg-card/60 backdrop-blur-md shrink-0 z-30">
+                    <div className={`${PAGE_SHELL} flex`}>
                         {TABS.map((tab) => {
                             const Icon = TAB_LABELS[tab].icon;
                             const isSelected = activeTab === tab;
@@ -258,15 +288,22 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
-                                    className={`flex-1 py-3 flex flex-col items-center gap-0.5 transition-all relative ${isSelected ? "text-dnd-red" : "text-muted-foreground"}`}
+                                    className={`flex-1 overflow-hidden py-3.5 text-sm font-medium text-center transition-all relative ${isSelected
+                                        ? "text-dnd-red"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/20"
+                                        }`}
                                 >
-                                    <Icon className="w-5 h-5" />
-                                    <span className="text-[10px] font-medium uppercase tracking-tighter">{TAB_LABELS[tab].text}</span>
-                                    {isSelected && <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-dnd-red rounded-t-full" />}
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        <Icon className="w-4 h-4" />
+                                        <span>{TAB_LABELS[tab].text}</span>
+                                    </div>
                                     {tab === "splits" && pendingCount > 0 && (
-                                        <span className="absolute top-1 right-1/4 bg-dnd-red text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center border-2 border-background">
+                                        <span className="absolute top-1/2 -translate-y-1/2 right-[10%] bg-dnd-red text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
                                             {pendingCount}
                                         </span>
+                                    )}
+                                    {isSelected && (
+                                        <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-dnd-red" />
                                     )}
                                 </button>
                             );
@@ -274,94 +311,57 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
                     </div>
                 </div>
 
-                {/* --- LEFT SIDEBAR: PARTY INFO (Desktop persistent, Mobile activeTab only) --- */}
-                <aside className={`${activeTab === "party" ? "flex" : "hidden"} md:flex flex-col flex-1 min-h-0 w-full md:w-80 lg:w-96 md:flex-none md:shrink-0 md:border-r border-border/30 bg-card/10 overflow-hidden relative`}>
-                    <div className="flex-1 min-h-0 overflow-y-auto px-6 lg:px-8 py-4 md:py-6 pb-6 mt-1.5">
-                        <PartyTab
-                            party={party}
-                            isDM={isDM}
-                            myCharacter={myCharacter}
-                            partyCode={partyCode}
-                            enabledCoins={enabledCoins}
-                            onRefresh={loadAll}
-                            onBack={onBack}
-                        />
-                    </div>
-                </aside>
-
-                {/* --- MAIN CONTENT AREA (Tabs for Desktop, Conditional for Mobile) --- */}
-                <main className={`flex-1 min-h-0 flex flex-col overflow-hidden bg-background ${activeTab === "party" ? "hidden md:flex" : "flex"}`}>
-                    {/* Desktop Tab Bar (Excludes Party Tab) */}
-                    <div className="hidden md:flex border-b border-border/30 bg-card/60 backdrop-blur-md shrink-0 z-30 justify-start">
-                        <div className="w-full px-8 md:px-12 lg:px-16 flex">
-                            {TABS.filter(t => t !== "party").map((tab) => {
-                                const Icon = TAB_LABELS[tab].icon;
-                                const isSelected = activeTab === tab || (activeTab === "party" && tab === "treasury"); // Fallback for desktop when state is 'party'
-                                return (
-                                    <button
-                                        key={tab}
-                                        onClick={() => setActiveTab(tab)}
-                                        className={`flex-1 overflow-hidden py-3.5 text-sm font-medium text-center transition-all relative ${isSelected
-                                            ? "text-dnd-red"
-                                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/20"
-                                            }`}
-                                    >
-                                        <div className="flex items-center justify-center gap-1.5">
-                                            <Icon className="w-4 h-4" />
-                                            <span>{TAB_LABELS[tab].text}</span>
-                                        </div>
-                                        {tab === "splits" && pendingCount > 0 && (
-                                            <span className="absolute top-1/2 -translate-y-1/2 right-[10%] bg-dnd-red text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
-                                                {pendingCount}
-                                            </span>
-                                        )}
-                                        {isSelected && (
-                                            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-dnd-red" />
-                                        )}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Scrollable Content Container */}
+                {/* Main Content Area */}
+                <main className="flex-1 min-h-0 flex flex-col overflow-hidden bg-background">
                     <div className="flex-1 min-h-0 overflow-y-auto w-full relative">
-                        {/* Tab Content Wrapper */}
-                        <div className="w-full px-8 md:px-12 lg:px-16 py-4 md:py-6 pb-6 animate-fade-in">
-                            {(activeTab === "treasury" || (activeTab === "party" && width >= 768)) && (
-                                <TreasuryTab
-                                    party={party}
-                                    isDM={isDM}
-                                    myCharacter={myCharacter}
-                                    partyCode={partyCode}
-                                    enabledCoins={enabledCoins}
-                                    onRefresh={loadAll}
-                                />
-                            )}
-                            {activeTab === "splits" && (
-                                <SplitsTab
-                                    partyCode={partyCode}
-                                    isDM={isDM}
-                                    myCharacter={myCharacter}
-                                    characters={party.characters.filter(c => c.is_active)}
-                                    enabledCoins={enabledCoins}
-                                    jointPayments={jointPayments}
-                                    onRefresh={loadAll}
-                                />
-                            )}
-                            {activeTab === "inventory" && (
-                                <InventoryTab
-                                    partyCode={partyCode}
-                                    isDM={isDM}
-                                    myCharacter={myCharacter}
-                                    characters={party.characters.filter((c) => c.is_active)}
-                                    items={inventoryItems}
-                                    onRefresh={loadAll}
-                                />
-                            )}
-                            {activeTab === "history" && (
-                                <HistoryTab transactions={transactions} inventoryEvents={inventoryHistory} />
-                            )}
+                        <div className={`${PAGE_SHELL} py-4 md:py-6 pb-6 animate-fade-in`}>
+                            <div className={activeTab === "party" ? "mx-auto w-full max-w-3xl" : "w-full"}>
+                                {activeTab === "party" && (
+                                    <PartyTab
+                                        party={party}
+                                        isDM={isDM}
+                                        myCharacter={myCharacter}
+                                        partyCode={partyCode}
+                                        enabledCoins={enabledCoins}
+                                        onRefresh={loadAll}
+                                        onBack={onBack}
+                                    />
+                                )}
+                                {activeTab === "treasury" && (
+                                    <TreasuryTab
+                                        party={party}
+                                        isDM={isDM}
+                                        myCharacter={myCharacter}
+                                        partyCode={partyCode}
+                                        enabledCoins={enabledCoins}
+                                        onRefresh={loadAll}
+                                    />
+                                )}
+                                {activeTab === "splits" && (
+                                    <SplitsTab
+                                        partyCode={partyCode}
+                                        isDM={isDM}
+                                        myCharacter={myCharacter}
+                                        characters={party.characters.filter(c => c.is_active)}
+                                        enabledCoins={enabledCoins}
+                                        jointPayments={jointPayments}
+                                        onRefresh={loadAll}
+                                    />
+                                )}
+                                {activeTab === "inventory" && (
+                                    <InventoryTab
+                                        partyCode={partyCode}
+                                        isDM={isDM}
+                                        myCharacter={myCharacter}
+                                        characters={party.characters.filter((c) => c.is_active)}
+                                        items={inventoryItems}
+                                        onRefresh={loadAll}
+                                    />
+                                )}
+                                {activeTab === "history" && (
+                                    <HistoryTab transactions={transactions} inventoryEvents={inventoryHistory} />
+                                )}
+                            </div>
                         </div>
                     </div>
                 </main>
@@ -369,7 +369,7 @@ export default function PartyView({ partyCode, onBack }: PartyViewProps) {
 
             {/* Identity / Balance Footer */}
             <footer className="md:hidden bg-secondary/10 border-t border-border/20 shrink-0 z-50">
-                <div className="w-full px-8 md:px-12 lg:px-16 py-3 flex items-center justify-between">
+                <div className={`${PAGE_SHELL} py-3 flex items-center justify-between`}>
                     {myCharacter ? (
                         <>
                             <div className="flex items-center gap-3 min-w-0">
