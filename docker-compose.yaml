@@ -27,6 +27,8 @@ services:
       - .env
     environment:
       LAN_IP: ${LAN_IP}
+      UV_SYNC_ON_START: "1"
+      UVICORN_RELOAD: "1"
     ports:
       - "8000:8000"
     depends_on:

@@ -1,4 +1,3 @@
-from contextlib import asynccontextmanager
 import ipaddress
 import os
 import socket
@@ -6,10 +5,7 @@ from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import SQLModel
-
 from app.core.config import get_settings
-from app.core.database import engine
 
 # Import all models so SQLModel registers them
 import app.models  # noqa: F401
@@ -22,24 +18,17 @@ from app.api.transfers import router as transfers_router
 from app.api.transactions import router as transactions_router
 from app.api.joint_payments import router as joint_payments_router
 from app.api.inventory import router as inventory_router
+from app.api.heroic_inspiration import router as heroic_inspiration_router
 from app.api.sse import router as sse_router
 
 
 settings = get_settings()
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Create database tables on startup (development only)."""
-    SQLModel.metadata.create_all(engine)
-    yield
-
-
 app = FastAPI(
     title="D&D Currency Manager",
     description="Real-time currency management for D&D parties on LAN",
     version="0.1.0",
-    lifespan=lifespan,
 )
 
 # CORS — allow any origin since this is a LAN-only app.
@@ -60,6 +49,7 @@ app.include_router(transfers_router)
 app.include_router(transactions_router)
 app.include_router(joint_payments_router)
 app.include_router(inventory_router)
+app.include_router(heroic_inspiration_router)
 app.include_router(sse_router)
 
 

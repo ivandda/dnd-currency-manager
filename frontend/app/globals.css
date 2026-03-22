@@ -358,6 +358,25 @@
   .animate-balance-change {
     animation: balanceFlash 0.6s ease-out;
   }
+
+  .heroic-row {
+    border-color: color-mix(in oklab, var(--gold) 35%, var(--border));
+    background:
+      linear-gradient(90deg,
+        color-mix(in oklab, var(--warning-soft) 25%, transparent) 0%,
+        transparent 55%);
+    box-shadow:
+      inset 2px 0 0 color-mix(in oklab, var(--gold) 55%, transparent),
+      0 0 0 1px color-mix(in oklab, var(--gold) 10%, transparent);
+  }
+
+  .animate-heroic-pulse {
+    animation: heroicPulse 1.4s ease-out;
+  }
+
+  .animate-heroic-burst {
+    animation: heroicBurst 1.3s ease-out forwards;
+  }
 }
 
 @keyframes fadeIn {
@@ -393,5 +412,50 @@
 
   100% {
     filter: brightness(1);
+  }
+}
+
+@keyframes heroicPulse {
+  0% {
+    box-shadow:
+      inset 2px 0 0 color-mix(in oklab, var(--gold) 55%, transparent),
+      0 0 0 0 color-mix(in oklab, var(--gold) 0%, transparent);
+    filter: brightness(1);
+  }
+
+  35% {
+    box-shadow:
+      inset 2px 0 0 color-mix(in oklab, var(--gold) 90%, transparent),
+      0 0 0 6px color-mix(in oklab, var(--gold) 16%, transparent);
+    filter: brightness(1.08);
+  }
+
+  100% {
+    box-shadow:
+      inset 2px 0 0 color-mix(in oklab, var(--gold) 55%, transparent),
+      0 0 0 0 color-mix(in oklab, var(--gold) 0%, transparent);
+    filter: brightness(1);
+  }
+}
+
+@keyframes heroicBurst {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+
+  18% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  82% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.02);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(1.04);
   }
 }

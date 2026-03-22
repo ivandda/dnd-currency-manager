@@ -259,6 +259,25 @@ export const transactionApi = {
         ),
 };
 
+// --- Heroic Inspiration API ---
+
+export const heroicInspirationApi = {
+    grant: (code: string, characterId: number) =>
+        request<import("./types").HeroicInspirationUpdate>(`/api/parties/${code}/heroic-inspiration/${characterId}/grant`, {
+            method: "POST",
+        }),
+
+    revoke: (code: string, characterId: number) =>
+        request<import("./types").HeroicInspirationUpdate>(`/api/parties/${code}/heroic-inspiration/${characterId}/revoke`, {
+            method: "POST",
+        }),
+
+    use: (code: string) =>
+        request<import("./types").HeroicInspirationUpdate>(`/api/parties/${code}/heroic-inspiration/use`, {
+            method: "POST",
+        }),
+};
+
 // --- Joint Payment API ---
 
 export const jointPaymentApi = {

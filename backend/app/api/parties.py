@@ -126,6 +126,7 @@ def _build_character_response(
         ),
         balance_visible_to_viewer=can_view_balance,
         is_balance_public=char.is_balance_public,
+        has_heroic_inspiration=char.has_heroic_inspiration,
         is_active=char.is_active,
         user_id=char.user_id,
         username=user.username if user else "Unknown",
