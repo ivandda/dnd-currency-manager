@@ -48,7 +48,7 @@ function useWindowWidth() {
     return width;
 }
 
-const TABS = ["party", "treasury", "inventory", "splits", "history"] as const;
+const TABS = ["party", "treasury", "splits", "inventory", "history"] as const;
 type TabId = (typeof TABS)[number];
 const TAB_LABELS: Record<TabId, { text: string; icon: React.ElementType }> = {
     party: { text: "Party", icon: Castle },
